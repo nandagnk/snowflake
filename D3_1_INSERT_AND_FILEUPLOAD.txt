@@ -1,0 +1,84 @@
+Skip to main content
+Skip to editor
+Skip to results
+Worksheets
+Worksheets
+PREVIEW
+Draft
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+/*----------------D3_1 Hands-on----------------
+1) INSERT statement variations 
+2) Uploading data via the UI
+----------------------------------------------*/
+
+--Set context
+USE ROLE SYSADMIN;
+
+CREATE DATABASE FILMS_DB;
+CREATE SCHEMA FILMS_SCHEMA;
+
+CREATE TABLE FILMS
+(
+ID STRING, 
+TITLE STRING, 
+RELEASE_DATE DATE
+);
+
+-- Clone only structure
+CREATE TABLE FILMS_2000 CLONE FILMS;
+
+-- Insert one row via a select query without specifying columns
+INSERT INTO FILMS SELECT 'fi3p9f8hu8', 'Parasite', DATE('2019-05-30');
+                                                      
+-- Insert one row via a select query and specify columns (omit release date column)
+INSERT INTO  FILMS (ID, TITLE) SELECT 'dm8d7g7mng', '12 Angry Men';
+
+-- Insert one row via VALUES syntax
+INSERT INTO FILMS VALUES ('ily1n9muxd','Back to the Future',DATE('1985-12-04'));
+
+-- Insert multiple rows via VALUES syntax
+INSERT INTO FILMS VALUES 
+('9x3wnr0zit', 'Citizen Kane', DATE('1942-01-24')),
+('2wyaojnzfq', 'Old Boy', DATE('2004-10-15')), 
+('0s0smukk2p', 'Ratatouille', DATE('2007-06-29'));
+
+Databases
+Worksheets
+Search
+
+Sorted by ascending
