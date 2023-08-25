@@ -1,0 +1,345 @@
+# The Snowpark package is required for Python Worksheets. 
+# You can add more packages by selecting them using the Packages control and then importing them.
+
+import snowflake.snowpark as snowpark
+from snowflake.snowpark.functions import *
+from snowflake.snowpark.types import *
+
+def main(session: snowpark.Session):
+    
+	###create a table test with the schema id INT, name VARCHAR
+    session.sql('CREATE OR REPLACE TABLE test (id INT, name VARCHAR)').collect()
+	
+    ###insert 5 records into the table test
+    session.sql("""
+    INSERT INTO test VALUES
+    (1, 'Product 1'),
+    (2, 'Product 1A'),
+    (3, 'Product 1B'),
+    (4, 'Product 2'),
+    (5, 'Product 2A')    
+    """).collect()
+	
+    
+    ###following line creates a dataframe from the table with a filter condtion which will have the records where "id" > 2
+	  df = session.table('test').filter(col("id") > 2)
+	
+    Print a sample of the dataframe to standard output.
+    df.show()
+	
+######output
+###---------------------
+###|"ID"  |"NAME"      |
+###---------------------
+###|3     |Product 1B  |
+###|4     |Product 2   |
+###|5     |Product 2A  |
+###---------------------
+
+
+    ### Return value will appear in the Results tab.
+    ##return df
+
+    ##create or replace the table sample_product_data with the schema details (id INT, parent_id INT, category_id INT, name VARCHAR, serial_number VARCHAR, key INT, "3rd" INT)
+    session.sql('CREATE OR REPLACE TABLE sample_product_data (id INT, parent_id INT, category_id INT, name VARCHAR, serial_number VARCHAR, key INT, "3rd" INT)').collect()
+
+    ##insert 12 records into the table sample_product_data
+    session.sql("""
+    INSERT INTO sample_product_data VALUES
+    (1, 0, 5, 'Product 1', 'prod-1', 1, 10),
+    (2, 1, 5, 'Product 1A', 'prod-1-A', 1, 20),
+    (3, 1, 5, 'Product 1B', 'prod-1-B', 1, 30),
+    (4, 0, 10, 'Product 2', 'prod-2', 2, 40),
+    (5, 4, 10, 'Product 2A', 'prod-2-A', 2, 50),
+    (6, 4, 10, 'Product 2B', 'prod-2-B', 2, 60),
+    (7, 0, 20, 'Product 3', 'prod-3', 3, 70),
+    (8, 7, 20, 'Product 3A', 'prod-3-A', 3, 80),
+    (9, 7, 20, 'Product 3B', 'prod-3-B', 3, 90),
+    (10, 0, 50, 'Product 4', 'prod-4', 4, 100),
+    (11, 10, 50, 'Product 4A', 'prod-4-A', 4, 100),
+    (12, 10, 50, 'Product 4B', 'prod-4-B', 4, 100)
+    """).collect()
+
+    ##create a datafrane for the table sample_product_data with a filter condtion "category_id=5"
+    df1 = session.table('sample_product_data').filter(col("category_id")==5)
+	
+		
+	##print the records only first 5 records
+    df1.show()
+    
+######output	
+#####-------------------------------------------------------------------------------------
+#####|"ID"  |"PARENT_ID"  |"CATEGORY_ID"  |"NAME"      |"SERIAL_NUMBER"  |"KEY"  |"3rd"  |
+#####-------------------------------------------------------------------------------------
+#####|1     |0            |5              |Product 1   |prod-1           |1      |10     |
+#####|2     |1            |5              |Product 1A  |prod-1-A         |1      |20     |
+#####|3     |1            |5              |Product 1B  |prod-1-B         |1      |30     |
+#####-------------------------------------------------------------------------------------
+
+    df1 = session.table('sample_product_data').filter('category_id = 5 and parent_id > 0')
+    df1.show()
+
+######output		
+######-------------------------------------------------------------------------------------
+######|"ID"  |"PARENT_ID"  |"CATEGORY_ID"  |"NAME"      |"SERIAL_NUMBER"  |"KEY"  |"3rd"  |
+######-------------------------------------------------------------------------------------
+######|2     |1            |5              |Product 1A  |prod-1-A         |1      |20     |
+######|3     |1            |5              |Product 1B  |prod-1-B         |1      |30     |
+######-------------------------------------------------------------------------------------
+	
+    
+    # Create a DataFrame from a SQL query
+    df_sql = session.sql("SELECT * FROM sample_product_data")
+    df_sql.show()
+
+######output
+######-------------------------------------------------------------------------------------
+######|"ID"  |"PARENT_ID"  |"CATEGORY_ID"  |"NAME"      |"SERIAL_NUMBER"  |"KEY"  |"3rd"  |
+######-------------------------------------------------------------------------------------
+######|1     |0            |5              |Product 1   |prod-1           |1      |10     |
+######|2     |1            |5              |Product 1A  |prod-1-A         |1      |20     |
+######|3     |1            |5              |Product 1B  |prod-1-B         |1      |30     |
+######|4     |0            |10             |Product 2   |prod-2           |2      |40     |
+######|5     |4            |10             |Product 2A  |prod-2-A         |2      |50     |
+######|6     |4            |10             |Product 2B  |prod-2-B         |2      |60     |
+######|7     |0            |20             |Product 3   |prod-3           |3      |70     |
+######|8     |7            |20             |Product 3A  |prod-3-A         |3      |80     |
+######|9     |7            |20             |Product 3B  |prod-3-B         |3      |90     |
+######|10    |0            |50             |Product 4   |prod-4           |4      |100    |
+######-------------------------------------------------------------------------------------
+
+    # Create a DataFrame with one column named a from specified values.
+    df2 = session.create_dataframe([1, 2, 3, 4]).to_df("a")
+    df2.show()
+	
+######output
+######-------
+######|"A"  |
+######-------
+######|1    |
+######|2    |
+######|3    |
+######|4    |
+######-------
+
+    # Create a DataFrame with 4 columns, "a", "b", "c" and "d".
+    df2 = session.create_dataframe([[1, 2, 3, 4]], schema=["a", "b", "c", "d"])
+    df2.show()
+
+######output
+######-------------------------
+######|"A"  |"B"  |"C"  |"D"  |
+######-------------------------
+######|1    |2    |3    |4    |
+######-------------------------
+
+    # Create another DataFrame with 4 columns, "a", "b", "c" and "d".
+    from snowflake.snowpark import Row
+    df3 = session.create_dataframe([Row(a=1, b=2, c=3, d=4)])
+    df3.show()
+
+######output	
+######-------------------------
+######|"A"  |"B"  |"C"  |"D"  |
+######-------------------------
+######|1    |2    |3    |4    |
+######-------------------------	
+
+    # Create a DataFrame and specify a schema
+    from snowflake.snowpark.types import IntegerType, StringType, StructType, StructField
+    schema = StructType([StructField("a", IntegerType()), StructField("b", StringType())])
+    df4 = session.create_dataframe([[1, "snow"], [3, "flake"]], schema)
+    df4.show()
+
+######output
+######---------------
+######|"A"  |"B"    |
+######---------------
+######|1    |snow   |
+######|3    |flake  |
+######---------------
+
+    # Create a DataFrame from a range
+    # The DataFrame contains rows with values 1, 3, 5, 7, and 9 respectively.
+    df_range = session.range(1, 10, 2).to_df("a")
+    df_range.show()
+
+######output	
+######-------
+######|"A"  |
+######-------
+######|1    |
+######|3    |
+######|5    |
+######|7    |
+######|9    |
+######-------	
+
+    ## creating dataframe from a csv file present in the interanl stage
+    ## defining fields
+    txn_id  = StructField ("txn_id",IntegerType(),True)
+    txn_date= StructField ("txn_date",StringType(),True)
+    cust_id = StructField ("cust_id",IntegerType(),True)
+    amount  = StructField ("txn_amount",FloatType(),True)
+    category = StructField ("category",StringType(),True)
+    product = StructField ("product",StringType(),True)
+    city = StructField ("city",StringType(),True)
+    state = StructField ("state",StringType(),True)
+    txn_type = StructField ("txn_type",StringType(),True)
+    ###Defining the schema
+    txn_schema = StructType([txn_id,txn_date,cust_id,amount,category,product,city,state,txn_type])
+
+    df_txn = session.read \
+                    .schema(txn_schema)\
+                    .option("skip_header",1) \
+	                .csv("@my_stage/txn.csv")
+    df_txn.show(5)
+	
+#####output
+#####--------------------------------------------------------------------------------------------------------------------------------------------------
+#####|"TXN_ID"  |"TXN_DATE"  |"CUST_ID"  |"TXN_AMOUNT"  |"CATEGORY"          |"PRODUCT"                          |"CITY"       |"STATE"     |"TXN_TYPE"  |
+#####--------------------------------------------------------------------------------------------------------------------------------------------------
+#####|0         |06-26-2011  |4007024    |40.33         |NULL                |Cardio Machine Accessories         |Clarksville  |Tennessee   |credit      |
+#####|1         |05-26-2011  |4006742    |198.44        |Exercise & Fitness  |Weightlifting Gloves               |Long Beach   |California  |credit      |
+#####|2         |06-01-2011  |4009775    |5.58          |Exercise & Fitness  |Weightlifting Machine Accessories  |Anaheim      |California  |credit      |
+#####|3         |06-05-2011  |4002199    |198.19        |Gymnastics          |Gymnastics Rings                   |Milwaukee    |Wisconsin   |credit      |
+#####|4         |12-17-2011  |4002613    |98.81         |Team Sports         |Field Hockey                       |Nashville    |Tennessee   |credit      |
+#####--------------------------------------------------------------------------------------------------------------------------------------------------
+	
+	###get the total number of records in the csv file.\
+    print ("###Total number of records in txn.csv",df_txn.count())
+    print ("\n")
+	
+###Total number of records in txn.csv 95904	
+    
+	###get the maximum txn_amount for each product
+	print("####Maximum TXN_AMOUNT for each Product\n")
+    df_txn.groupBy(col("product")).max(col("txn_amount")).sort(col("product")).show(10)
+
+###Maximum TXN_AMOUNT for each Product
+#####output
+#####-------------------------------------------
+#####|"PRODUCT"            |"MAX(TXN_AMOUNT)"  |
+#####-------------------------------------------
+#####|Abdominal Equipment  |199.81             |
+#####|Air Hockey           |199.44             |
+#####|Air Suits            |199.51             |
+#####|Archery              |199.97             |
+#####|Badminton            |199.65             |
+#####|Balance Beams        |199.93             |
+#####|Ballet Bars          |199.73             |
+#####|Baseball             |199.74             |
+#####|Basketball           |199.92             |
+#####|Beach Volleyball     |199.84             |
+#####-------------------------------------------
+
+     ###displaying in descending order using sort clause
+     df_txn.groupBy(col("product")).max(col("txn_amount")).sort(col("product").desc()).show(10)
+#####output
+#####---------------------------------------------------------
+#####|"PRODUCT"                          |"MAX(TXN_AMOUNT)"  |
+#####---------------------------------------------------------
+#####|Yoga & Pilates                     |199.96             |
+#####|Wrestling                          |199.96             |
+#####|Windsurfing                        |199.87             |
+#####|Whitewater Rafting                 |199.81             |
+#####|Wetsuits                           |199.6              |
+#####|Weightlifting Machines             |199.98             |
+#####|Weightlifting Machine Accessories  |199.56             |
+#####|Weightlifting Gloves               |199.8              |
+#####|Weightlifting Belts                |199.41             |
+#####|Weight Benches                     |199.91             |
+#####---------------------------------------------------------
+
+     ###apply a fiter condition on df_txn to list the records where category = 'Exercise & Fitness' and city='Long Beach'
+     df_txn.filter("category = 'Exercise & Fitness' and city='Long Beach'").show(10)
+#####output
+#####---------------------------------------------------------------------------------------------------------------------------------------------
+#####|"TXN_ID"  |"TXN_DATE"  |"CUST_ID"  |"TXN_AMOUNT"  |"CATEGORY"          |"PRODUCT"                   |"CITY"      |"STATE"     |"TXN_TYPE"  |
+#####---------------------------------------------------------------------------------------------------------------------------------------------
+#####|1         |05-26-2011  |4006742    |198.44        |Exercise & Fitness  |Weightlifting Gloves        |Long Beach  |California  |credit      |
+#####|1173      |08-07-2011  |4000270    |193.75        |Exercise & Fitness  |Yoga & Pilates              |Long Beach  |California  |credit      |
+#####|1643      |09-05-2011  |4005026    |57.86         |Exercise & Fitness  |Free Weight Bars            |Long Beach  |California  |credit      |
+#####|1676      |04-10-2011  |4000955    |28.2          |Exercise & Fitness  |Exercise Bands              |Long Beach  |California  |cash        |
+#####|2055      |04-02-2011  |4006545    |182.4         |Exercise & Fitness  |Exercise Balls              |Long Beach  |California  |credit      |
+#####|2297      |06-30-2011  |4005820    |20.81         |Exercise & Fitness  |Free Weight Bars            |Long Beach  |California  |cash        |
+#####|2419      |01-11-2011  |4004658    |15.43         |Exercise & Fitness  |Weightlifting Gloves        |Long Beach  |California  |credit      |
+#####|3455      |07-02-2011  |4000531    |133.7         |Exercise & Fitness  |Cardio Machine Accessories  |Long Beach  |California  |credit      |
+#####|3673      |05-20-2011  |4009699    |189.73        |Exercise & Fitness  |Yoga & Pilates              |Long Beach  |California  |credit      |
+#####|3765      |05-17-2011  |4004153    |187.51        |Exercise & Fitness  |Medicine Balls              |Long Beach  |California  |credit      |
+#####---------------------------------------------------------------------------------------------------------------------------------------------
+
+    ###find the max, min, average, total, number of transactions product wise where category = 'Exercise & Fitness' and city='Long Beach'
+	
+    df_txn.filter("category = 'Exercise & Fitness' and city='Long Beach'")\
+          .group_by("product")\
+          .agg(max("txn_amount").alias("Max_Txn_Amount"),
+               min("txn_amount").alias("Min_Txn_Amount"),
+               round(avg("txn_amount"),2).alias("Avg_Txn_Amount"),
+               sum("txn_amount").alias("Sum_Txn_Amount"),
+               count("txn_amount").alias("Num_of_Transactions")).sort(col("product")).show()
+	
+#####output
+#####----------------------------------------------------------------------------------------------------------------------------------
+#####|"PRODUCT"                   |"MAX_TXN_AMOUNT"  |"MIN_TXN_AMOUNT"  |"AVG_TXN_AMOUNT"  |"SUM_TXN_AMOUNT"  |"NUM_OF_TRANSACTIONS"  |
+#####----------------------------------------------------------------------------------------------------------------------------------
+#####|Abdominal Equipment         |191.55            |86.37             |129.78            |1427.53           |11                     |
+#####|Cardio Machine Accessories  |197.79            |64.03             |139.5             |1395.0            |10                     |
+#####|Cardio Machines             |177.83            |15.44             |87.54             |525.22            |6                      |
+#####|Exercise Balls              |184.15            |55.61             |137.27            |960.89            |7                      |
+#####|Exercise Bands              |155.65            |14.71             |72.94             |802.36            |11                     |
+#####|Foam Rollers                |196.33            |19.51             |108.97            |1089.69           |10                     |
+#####|Free Weight Bars            |190.62            |20.81             |99.25             |893.28            |9                      |
+#####|Free Weights                |169.97            |10.73             |81.18             |730.66            |9                      |
+#####|Gym Mats                    |179.69            |14.31             |102.65            |718.57            |7                      |
+#####|Jump Ropes                  |197.26            |14.18             |83.67             |920.34            |11                     |
+#####----------------------------------------------------------------------------------------------------------------------------------
+
+     
+	
+	###find the max, min, average, total, number of transactions product wise where category = 'Exercise & Fitness' and city='Long Beach' 
+	###and list only the product where number transaction > 10
+
+    df_txn.filter("category = 'Exercise & Fitness' and city='Long Beach'")\
+          .group_by("product")\
+          .agg(max("txn_amount").alias("Max_Txn_Amount"),
+               min("txn_amount").alias("Min_Txn_Amount"),
+               round(avg("txn_amount"),2).alias("Avg_Txn_Amount"),
+               sum("txn_amount").alias("Sum_Txn_Amount"),
+               count("txn_amount").alias("Num_of_Transactions"))\
+          .where ("Num_of_Transactions > 10").sort(col("product")).show()	   
+			   
+#####output			   
+#####---------------------------------------------------------------------------------------------------------------------------
+#####|"PRODUCT"            |"MAX_TXN_AMOUNT"  |"MIN_TXN_AMOUNT"  |"AVG_TXN_AMOUNT"  |"SUM_TXN_AMOUNT"  |"NUM_OF_TRANSACTIONS"  |
+#####---------------------------------------------------------------------------------------------------------------------------
+#####|Abdominal Equipment  |191.55            |86.37             |129.78            |1427.53           |11                     |
+#####|Exercise Bands       |155.65            |14.71             |72.94             |802.36            |11                     |
+#####|Jump Ropes           |197.26            |14.18             |83.67             |920.34            |11                     |
+#####|Yoga & Pilates       |193.75            |33.81             |127.08            |1524.94           |12                     |
+#####---------------------------------------------------------------------------------------------------------------------------
+			   
+			   
+	###introduce new columns year (showing the year of transaction) and txn_type as 'Dr' or 'Cr' instead of Debit or Credit and rename the column "Txn_date" as "Transaction_Date"		   
+    df_txn.filter("category = 'Exercise & Fitness' and city='Long Beach'") \
+          .with_column("Year",substr("txn_date",7,4)) \
+          .with_column_renamed("txn_date","Transaction_Date")\
+          .with_column("Txn_Type",sql_expr("case when txn_type = 'Debit' then 'Dr' else 'Cr' end"))\
+          .sort(col("product"))\
+          .show(10)
+
+#####output			   		  
+#####-------------------------------------------------------------------------------------------------------------------------------------------------------
+#####|"TXN_ID"  |"TRANSACTION_DATE"  |"CUST_ID"  |"TXN_AMOUNT"  |"CATEGORY"          |"PRODUCT"            |"CITY"      |"STATE"     |"YEAR"  |"TXN_TYPE"  |
+#####-------------------------------------------------------------------------------------------------------------------------------------------------------
+#####|68944     |02-11-2011          |4004703    |86.37         |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|54565     |01-13-2011          |4004287    |190.11        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|28398     |01-05-2011          |4003913    |113.82        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|75992     |04-20-2011          |4000281    |175.44        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|69532     |03-03-2011          |4000280    |191.55        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|49264     |05-26-2011          |4003849    |88.08         |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|11099     |08-01-2011          |4001275    |113.86        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|77709     |06-30-2011          |4006947    |113.1         |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|71440     |04-23-2011          |4004182    |122.98        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####|63259     |08-13-2011          |4007749    |92.08         |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
+#####-------------------------------------------------------------------------------------------------------------------------------------------------------
