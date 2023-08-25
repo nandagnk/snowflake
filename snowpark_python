@@ -1,3 +1,101 @@
+Snowpark with python
+====================
+
+Hint: Place the data sets into an internal stage for data processing using snowpark
+
+Step 1 connect to snowflake CLI and place the required datasets
+
+User: gnanda80
+Password:
+* SnowSQL * v1.2.24
+Type SQL statements or !help
+gnanda80#COMPUTE_WH@(no database).(no schema)>use SAMPLE_DB;
++----------------------------------+
+| status                           |
+|----------------------------------|
+| Statement executed successfully. |
++----------------------------------+
+1 Row(s) produced. Time Elapsed: 0.219s
+
+Step 2 create an internal stage under the database Sample_DB
+
+gnanda80#COMPUTE_WH@SAMPLE_DB.PUBLIC>create stage my_stage;
++--------------------------------------------+
+| status                                     |
+|--------------------------------------------|
+| Stage area MY_STAGE successfully created. |
++--------------------------------------------+
+1 Row(s) produced. Time Elapsed: 1.384s
+
+Step 3 put the files into the internal stage my_stage
+
+put file://D:\Practising\PySpark\DATASETS\athlete_events.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\*.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\account_sales.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\actors.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\Adeline_bank_json.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\array_complex_json.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\Array_dat.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\devices.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\jsn_str.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\json_strct.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\place.json @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\customer_records.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\emp_data.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\dept_data.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\TASK1\product.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\Task2\Student_data.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\transacations.csv @my_stage;
+
+put file://D:\Practising\PySpark\DATASETS\transactions.csv @my_stage;
+
+#list the files in the internal stage my_stage
+gnanda80#COMPUTE_WH@SAMPLE_DB.PUBLIC>list @my_stage;
++-------------------------------------+---------+----------------------------------+-------------------------------+
+| name                                |    size | md5                              | last_modified                 |
+|-------------------------------------+---------+----------------------------------+-------------------------------|
+| my_stage/Adeline_bank_json.json.gz  |   10400 | 686f18dfaa90523af5915a694ac9cba5 | Thu, 24 Aug 2023 14:26:06 GMT |
+| my_stage/Array_dat.json.gz          |     832 | ab05412eb7306477b8d6b16cf1bb6f08 | Thu, 24 Aug 2023 14:27:14 GMT |
+| my_stage/Student_data.csv.gz        |     128 | c624bbf9519c3c66ab3826dad4a46541 | Thu, 24 Aug 2023 14:32:21 GMT |
+| my_stage/account_sales.json.gz      |     224 | 43c872adbfb8d19062fb4b7d1574e8b1 | Thu, 24 Aug 2023 14:24:26 GMT |
+| my_stage/actors.json.gz             |     384 | 91d46bc474031de45e0cd74a978df430 | Thu, 24 Aug 2023 14:24:53 GMT |
+| my_stage/array_complex_json.json.gz |     736 | afabb668f93546c66e2b053593d245bf | Thu, 24 Aug 2023 14:26:43 GMT |
+| my_stage/athlete_events.csv.gz      |  910192 | 6d343a2756f877e005d1ef2408bd3733 | Thu, 24 Aug 2023 14:23:10 GMT |
+| my_stage/customer_records.csv.gz    |  261936 | 389f112f3ca601b3f96735b961ab2875 | Thu, 24 Aug 2023 14:29:44 GMT |
+| my_stage/dept_data.csv.gz           |      80 | 7dae42c00bb3f539bfa14d3b1f0498d6 | Thu, 24 Aug 2023 14:30:52 GMT |
+| my_stage/devices.json.gz            |    9552 | ab34b1a22d496503a766979b2b3bc107 | Thu, 24 Aug 2023 14:27:43 GMT |
+| my_stage/emp_data.csv.gz            |     144 | fc2a281ff3160057190a90ac8e6f7397 | Thu, 24 Aug 2023 14:30:23 GMT |
+| my_stage/jsn_str.json.gz            |     208 | 09a602e85fa5a2b0cc73b9d4b00b0580 | Thu, 24 Aug 2023 14:28:12 GMT |
+| my_stage/json_strct.json.gz         |     144 | 4127aeaf0736c27e2a3fdcbb9c4d8364 | Thu, 24 Aug 2023 14:28:36 GMT |
+| my_stage/place.json.gz              |     160 | 0450b1147d852b7d4e7934ef16ba67c9 | Thu, 24 Aug 2023 14:28:57 GMT |
+| my_stage/product.csv.gz             |     144 | 2a792789ffdce4f5e1c8ca07fe058a3e | Thu, 24 Aug 2023 14:31:49 GMT |
+| my_stage/transactions.csv.gz        | 1618592 | eebe61e74eeabdb07199347d5a6508ee | Thu, 24 Aug 2023 14:34:25 GMT |
+| my_stage/txn.csv.gz                 | 1618512 | 5109d32ead94ae1aea7dded44b3f9ac1 | Wed, 23 Aug 2023 07:16:02 GMT |
+| my_stage/txs.csv.gz                 | 1618448 | ce0869f53c2aa3352eda81c87143a1b1 | Wed, 23 Aug 2023 07:15:41 GMT |
++-------------------------------------+---------+----------------------------------+-------------------------------+
+18 Row(s) produced. Time Elapsed: 0.156s
+
+=======================================================================================================================================
+
+DSL(domain specific language) processing using python in snowpark
+==================================================================
+
 # The Snowpark package is required for Python Worksheets. 
 # You can add more packages by selecting them using the Packages control and then importing them.
 
@@ -22,7 +120,7 @@ def main(session: snowpark.Session):
 	
     
     ###following line creates a dataframe from the table with a filter condtion which will have the records where "id" > 2
-	  df = session.table('test').filter(col("id") > 2)
+	df = session.table('test').filter(col("id") > 2)
 	
     Print a sample of the dataframe to standard output.
     df.show()
@@ -343,3 +441,237 @@ def main(session: snowpark.Session):
 #####|71440     |04-23-2011          |4004182    |122.98        |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
 #####|63259     |08-13-2011          |4007749    |92.08         |Exercise & Fitness  |Abdominal Equipment  |Long Beach  |California  |2011    |Cr          |
 #####-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    ###dropping unwanted columns from the result, example for when condition with_column clause
+    df_txn.filter("category = 'Exercise & Fitness' and city='Long Beach'") \
+          .with_column("Year",substr("txn_date",7,4)) \
+          .with_column_renamed("txn_date","Transaction_Date")\
+          .with_column("Txn_Type",sql_expr("case when txn_type = 'Debit' then 'Dr' else 'Cr' end"))\
+          .with_column("Txn_Category",when(col("txn_amount")<50,"low value transaction")\
+                                   .when(col("txn_amount")<150,"medium value transaction")\
+                                   .when(col("txn_amount")>=150,"high value transaction"))\
+          .drop(col("cust_id"))\
+          .drop(col("category"))\
+          .drop(col("city"))\
+          .sort(col("product"))\
+          .show(10)
+
+------------------------------------------------------------------------------------------------------------------------------------
+|"TXN_ID"  |"TRANSACTION_DATE"  |"TXN_AMOUNT"  |"PRODUCT"            |"STATE"     |"YEAR"  |"TXN_TYPE"  |"TXN_CATEGORY"            |
+------------------------------------------------------------------------------------------------------------------------------------
+|68944     |02-11-2011          |86.37         |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|54565     |01-13-2011          |190.11        |Abdominal Equipment  |California  |2011    |Cr          |high value transaction    |
+|28398     |01-05-2011          |113.82        |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|75992     |04-20-2011          |175.44        |Abdominal Equipment  |California  |2011    |Cr          |high value transaction    |
+|69532     |03-03-2011          |191.55        |Abdominal Equipment  |California  |2011    |Cr          |high value transaction    |
+|49264     |05-26-2011          |88.08         |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|11099     |08-01-2011          |113.86        |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|77709     |06-30-2011          |113.1         |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|71440     |04-23-2011          |122.98        |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+|63259     |08-13-2011          |92.08         |Abdominal Equipment  |California  |2011    |Cr          |medium value transaction  |
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+###===================================================================================================================
+
+    ########################
+    ####Joins Explained
+    ########################
+    ## creating dataframe for emp table from a csv file present in the interanl stage
+    ## cols list "emp_id","emp_name","mgr_id","Year_Joint","dept_no","gender","salary"
+    ## defining fields
+    emp_id  = StructField ("emp_id",IntegerType(),True)
+    emp_name= StructField ("emp_name",StringType(),True)
+    mgr_id = StructField ("mgr_id",IntegerType(),True)
+    Year_Joint  = StructField ("Year_Joint",IntegerType(),True)
+    dept_no = StructField ("dept_no",IntegerType(),True)
+    gender = StructField ("gender",StringType(),True)
+    salary = StructField ("salary",FloatType(),True)
+    ###Defining the schema
+    emp_schema = StructType([emp_id,emp_name,mgr_id,Year_Joint,dept_no,gender,salary])
+
+    df_emp = session.read \
+                    .schema(emp_schema) \
+	                .csv("@my_stage/emp_data.csv")
+    df_emp.show(5)	
+
+#####-------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NO"  |"GENDER"  |"SALARY"  |
+#####-------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10         |M         |3000.0    |
+#####|2         |Rose        |1         |2010          |20         |M         |4000.0    |
+#####|3         |Williams    |1         |2010          |10         |M         |1000.0    |
+#####|4         |Jones       |2         |2005          |10         |F         |2000.0    |
+#####|5         |Brown       |2         |2010          |40         |          |NULL      |
+#####|6         |Brown       |2         |2010          |50         |          |-1.0      |
+#####-------------------------------------------------------------------------------------
+
+    ## creating dataframe for dept table from a csv file present in the interanl stage
+    ## cols list "dept_name","dept_no"
+    ## defining fields    
+    dept_name= StructField ("dept_name",StringType(),True)
+    dept_no = StructField ("dept_no",IntegerType(),True)    
+    ###Defining the schema
+    dept_schema = StructType([dept_name,dept_no])
+
+    df_dept = session.read \
+                    .schema(dept_schema) \
+	                .csv("@my_stage/dept_data.csv")
+    df_dept.show()
+	
+#####---------------------------
+#####|"DEPT_NAME"  |"DEPT_NO"  |
+#####---------------------------
+#####|Finance      |10         |
+#####|Marketing    |20         |
+#####|Sales        |30         |
+#####|IT           |40         |
+#####---------------------------	
+
+    print("#####Sample inner join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"inner").show()
+
+#####Sample inner join between emp and dept using DSL processing
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"l_q9kv_DEPT_NO"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |"r_0z21_DEPT_NO"  |
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10                |M         |3000.0    |Finance      |10                |
+#####|3         |Williams    |1         |2010          |10                |M         |1000.0    |Finance      |10                |
+#####|4         |Jones       |2         |2005          |10                |F         |2000.0    |Finance      |10                |
+#####|2         |Rose        |1         |2010          |20                |M         |4000.0    |Marketing    |20                |
+#####|5         |Brown       |2         |2010          |40                |          |NULL      |IT           |40                |
+#####-----------------------------------------------------------------------------------------------------------------------------
+
+    print("Sample inner join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"inner")\
+          .with_column_renamed(df_emp["dept_no"],"dept_num")\
+          .drop(df_dept["dept_no"]).show()
+#####Sample inner join between emp and dept using DSL processing
+#####----------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NUM"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |
+#####----------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10          |M         |3000.0    |Finance      |
+#####|3         |Williams    |1         |2010          |10          |M         |1000.0    |Finance      |
+#####|4         |Jones       |2         |2005          |10          |F         |2000.0    |Finance      |
+#####|2         |Rose        |1         |2010          |20          |M         |4000.0    |Marketing    |
+#####|5         |Brown       |2         |2010          |40          |          |NULL      |IT           |
+#####----------------------------------------------------------------------------------------------------		  
+
+    print("#####Sample left outer join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"left").show()
+	
+#####Sample left outer join between emp and dept using DSL processing
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"l_aq45_DEPT_NO"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |"r_xh89_DEPT_NO"  |
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10                |M         |3000.0    |Finance      |10                |
+#####|2         |Rose        |1         |2010          |20                |M         |4000.0    |Marketing    |20                |
+#####|3         |Williams    |1         |2010          |10                |M         |1000.0    |Finance      |10                |
+#####|4         |Jones       |2         |2005          |10                |F         |2000.0    |Finance      |10                |
+#####|5         |Brown       |2         |2010          |40                |          |NULL      |IT           |40                |
+#####|6         |Brown       |2         |2010          |50                |          |-1.0      |NULL         |NULL              |
+#####-----------------------------------------------------------------------------------------------------------------------------
+
+    print("#####Sample left outer join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"left")\
+          .with_column_renamed(df_emp["dept_no"],"dept_num")\
+          .drop(df_dept["dept_no"]).show()
+
+#####Sample left outer join between emp and dept using DSL processing
+#####----------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NUM"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |
+#####----------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10          |M         |3000.0    |Finance      |
+#####|2         |Rose        |1         |2010          |20          |M         |4000.0    |Marketing    |
+#####|3         |Williams    |1         |2010          |10          |M         |1000.0    |Finance      |
+#####|4         |Jones       |2         |2005          |10          |F         |2000.0    |Finance      |
+#####|5         |Brown       |2         |2010          |40          |          |NULL      |IT           |
+#####|6         |Brown       |2         |2010          |50          |          |-1.0      |NULL         |
+#####----------------------------------------------------------------------------------------------------
+
+	
+    print("#####Sample right outer join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"right").show()
+	
+#####Sample right outer join between emp and dept using DSL processing
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"l_84hv_DEPT_NO"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |"r_ay1l_DEPT_NO"  |
+#####-----------------------------------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10                |M         |3000.0    |Finance      |10                |
+#####|3         |Williams    |1         |2010          |10                |M         |1000.0    |Finance      |10                |
+#####|4         |Jones       |2         |2005          |10                |F         |2000.0    |Finance      |10                |
+#####|2         |Rose        |1         |2010          |20                |M         |4000.0    |Marketing    |20                |
+#####|NULL      |NULL        |NULL      |NULL          |NULL              |NULL      |NULL      |Sales        |30                |
+#####|5         |Brown       |2         |2010          |40                |          |NULL      |IT           |40                |
+#####-----------------------------------------------------------------------------------------------------------------------------	
+	
+    print("#####Sample right outer join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"right")\
+          .with_column_renamed(df_emp["dept_no"],"dept_num")\
+          .drop(df_dept["dept_no"]).show()
+
+#####Sample right outer join between emp and dept using DSL processing
+#####----------------------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NUM"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |
+#####----------------------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10          |M         |3000.0    |Finance      |
+#####|3         |Williams    |1         |2010          |10          |M         |1000.0    |Finance      |
+#####|4         |Jones       |2         |2005          |10          |F         |2000.0    |Finance      |
+#####|2         |Rose        |1         |2010          |20          |M         |4000.0    |Marketing    |
+#####|NULL      |NULL        |NULL      |NULL          |NULL        |NULL      |NULL      |Sales        |
+#####|5         |Brown       |2         |2010          |40          |          |NULL      |IT           |
+#####----------------------------------------------------------------------------------------------------		  
+
+    print("#####Sample full outer join between emp and dept using DSL processing")
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"full")\
+          .select("emp_id","emp_name","mgr_id","year_joint",df_emp["dept_no"].alias("Dept_Number"),"gender","salary","dept_name")\
+          .show()
+		  
+#####Sample full outer join between emp and dept using DSL processing
+-------------------------------------------------------------------------------------------------------
+|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NUMBER"  |"GENDER"  |"SALARY"  |"DEPT_NAME"  |
+-------------------------------------------------------------------------------------------------------
+|1         |Smith       |-1        |2018          |10             |M         |3000.0    |Finance      |
+|2         |Rose        |1         |2010          |20             |M         |4000.0    |Marketing    |
+|3         |Williams    |1         |2010          |10             |M         |1000.0    |Finance      |
+|4         |Jones       |2         |2005          |10             |F         |2000.0    |Finance      |
+|5         |Brown       |2         |2010          |40             |          |NULL      |IT           |
+|6         |Brown       |2         |2010          |50             |          |-1.0      |NULL         |
+|NULL      |NULL        |NULL      |NULL          |NULL           |NULL      |NULL      |Sales        |
+-------------------------------------------------------------------------------------------------------
+
+    print("#####Sample leftsemi join between emp and dept using DSL processing")
+    ###This one similar to exist condition in sql list table A records only 
+    ### when they exists in table B
+    ###This will check the left table for the records exists in the right table and 
+    ### will return/display the columns only from left table hence called leftsemi
+    ### In this example it will display the employee records presents in dept table
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"leftsemi").show()
+	
+#####Sample leftsemi join between emp and dept using DSL processing
+#####-------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NO"  |"GENDER"  |"SALARY"  |
+#####-------------------------------------------------------------------------------------
+#####|1         |Smith       |-1        |2018          |10         |M         |3000.0    |
+#####|2         |Rose        |1         |2010          |20         |M         |4000.0    |
+#####|3         |Williams    |1         |2010          |10         |M         |1000.0    |
+#####|4         |Jones       |2         |2005          |10         |F         |2000.0    |
+#####|5         |Brown       |2         |2010          |40         |          |NULL      |
+#####-------------------------------------------------------------------------------------
+	
+    print("#####Sample leftanti join between emp and dept using DSL processing")
+    ###This one similar to not exists condition in sql list the table A records 
+    ### only when they not exists in table B
+    ###This will check the left table for the records exists in the right table and 
+    ### will return/display the columns only from left table hence called leftanti
+    ### In this example it will display the employee records not present in dept table
+    df_emp.join(df_dept,df_emp.dept_no==df_dept.dept_no,"leftanti").show()    	
+	
+#####Sample leftanti join between emp and dept using DSL processing
+#####-------------------------------------------------------------------------------------
+#####|"EMP_ID"  |"EMP_NAME"  |"MGR_ID"  |"YEAR_JOINT"  |"DEPT_NO"  |"GENDER"  |"SALARY"  |
+#####-------------------------------------------------------------------------------------
+#####|6         |Brown       |2         |2010          |50         |          |-1.0      |
+#####-------------------------------------------------------------------------------------	
+
+###===================================================================================================================
