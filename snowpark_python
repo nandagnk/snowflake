@@ -675,3 +675,31 @@ def main(session: snowpark.Session):
 #####-------------------------------------------------------------------------------------	
 
 ###===================================================================================================================
+
+####===================================####
+      ###working with complex data###
+####===================================####
+    df_simp_json = session.read.json("@my_stage/devices.json")
+    
+    print('No of records in the json file ',df_simp_json.count());  
+    print("Schema : ",df_simp_json.schema)
+
+    df_simp_json.show(2)    
+
+    df_simp_json.write.mode("overwrite").save_as_table("devices_json_01")
+
+    df_simp_json.write.save_as_table("devices",table_type="temporary")
+
+    df_new = session.sql("select $1:device_id::INT as device_id,\
+                                 $1:device_name::TEXT as device_name,\
+                                 $1:humidity::INT as humidity, \
+                                 $1:lat::INT as lat,\
+                                 $1:long::INT as long, \
+                                 $1:scale::TEXT as scale,\
+                                 $1:temp::INT as temp,\
+                                 $1:timestamp::TIMESTAMP as timestamp,\
+                                 $1:zipcode::INT as zipcode \
+                           from devices")
+    df_new.show(2)
+    
+    df_new.write.mode("overwrite").save_as_table("devices_json_02")
