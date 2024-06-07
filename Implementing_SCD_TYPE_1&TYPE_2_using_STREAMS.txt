@@ -1,0 +1,981 @@
+/*
+Note: Use notepad++ for viewing this document.
+*/
+
+CREATE DATABASE B21_Streaming;
+outcome:
+status
+Database B21_STREAMING successfully created.
+
+CREATE SCHEMA Streaming_schema;
+outcome:
+status
+Schema STREAMING_SCHEMA successfully created.
+
+use B21_Streaming.Streaming_schema;
+outcome:
+status
+Statement executed successfully.
+
+create table EMP_SRC(
+  empno    number(4,0),
+  ename    varchar2(10),
+  job      varchar2(9),
+  mgr      number(4,0),
+  hiredate date,
+  sal      number(7,2),
+  comm     number(7,2),
+  deptno   number(2,0)
+  );
+
+outcome:
+status
+Table EMP_SRC successfully created.
+
+
+Begin
+	insert into emp_src
+	values(
+	 7839, 'KING', 'PRESIDENT', null,
+	 to_date('17-11-1981','dd-mm-yyyy'),
+	 5000, null, 10
+	);
+	
+	insert into emp_src
+	values(
+	 7698, 'BLAKE', 'MANAGER', 7839,
+	 to_date('1-5-1981','dd-mm-yyyy'),
+	 2850, null, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7782, 'CLARK', 'MANAGER', 7839,
+	 to_date('9-6-1981','dd-mm-yyyy'),
+	 2450, null, 10
+	);
+	
+	insert into emp_src
+	values(
+	 7566, 'JONES', 'MANAGER', 7839,
+	 to_date('2-4-1981','dd-mm-yyyy'),
+	 2975, null, 20
+	);
+	
+	insert into emp_src
+	values(
+	 7788, 'SCOTT', 'ANALYST', 7566,
+	 to_date('13-07-1987','dd-mm-yyyy'),
+	 3000, null, 20
+	);
+	
+	insert into emp_src
+	values(
+	 7902, 'FORD', 'ANALYST', 7566,
+	 to_date('3-12-1981','dd-mm-yyyy'),
+	 3000, null, 20
+	);
+	
+	insert into emp_src
+	values(
+	 7369, 'SMITH', 'CLERK', 7902,
+	 to_date('17-12-1980','dd-mm-yyyy'),
+	 800, null, 20
+	);
+	
+	insert into emp_src
+	values(
+	 7499, 'ALLEN', 'SALESMAN', 7698,
+	 to_date('20-2-1981','dd-mm-yyyy'),
+	 1600, 300, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7521, 'WARD', 'SALESMAN', 7698,
+	 to_date('22-2-1981','dd-mm-yyyy'),
+	 1250, 500, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7654, 'MARTIN', 'SALESMAN', 7698,
+	 to_date('28-9-1981','dd-mm-yyyy'),
+	 1250, 1400, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7844, 'TURNER', 'SALESMAN', 7698,
+	 to_date('8-9-1981','dd-mm-yyyy'),
+	 1500, 0, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7876, 'ADAMS', 'CLERK', 7788,
+	 to_date('13-06-1997', 'dd-mm-yyyy'),
+	 1100, null, 20
+	);
+	
+	insert into emp_src
+	values(
+	 7900, 'JAMES', 'CLERK', 7698,
+	 to_date('3-12-1981','dd-mm-yyyy'),
+	 950, null, 30
+	);
+	
+	insert into emp_src
+	values(
+	 7934, 'MILLER', 'CLERK', 7782,
+	 to_date('23-1-1982','dd-mm-yyyy'),
+	 1300, null, 10
+	);
+	
+	commit;
+End;
+
+outcome:
+anonymous block
+
+SELECT count(1) no_of_employees FROM EMP_SRC;  ---expected outcome is 14;
+outcome:
+NO_OF_EMPLOYEES
+14
+
+SELECT * FROM EMP_SRC;   ---expected outcome show all the 14 records;
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR		HIREDATE	SAL		COMM	DEPTNO
+==============================================================================================================================================
+7839	KING	PRESIDENT			1981-11-17	5000.00			10
+7698	BLAKE	MANAGER		7839	1981-05-01	2850.00			30
+7782	CLARK	MANAGER		7839	1981-06-09	2450.00			10
+7566	JONES	MANAGER		7839	1981-04-02	2975.00			20
+7788	SCOTT	ANALYST		7566	1987-07-13	3000.00			20
+7902	FORD	ANALYST		7566	1981-12-03	3000.00			20
+7369	SMITH	CLERK		7902	1980-12-17	800.00			20
+7499	ALLEN	SALESMAN	7698	1981-02-20	1600.00	300.00	30
+7521	WARD	SALESMAN	7698	1981-02-22	1250.00	500.00	30
+7654	MARTIN	SALESMAN	7698	1981-09-28	1250.00	1400.00	30
+7844	TURNER	SALESMAN	7698	1981-09-08	1500.00	0.00	30
+7876	ADAMS	CLERK		7788	1997-06-13	1100.00			20
+7900	JAMES	CLERK		7698	1981-12-03	950.00			30
+7934	MILLER	CLERK		7782	1982-01-23	1300.00			10
+==============================================================================================================================================
+
+//creating target table from the source table for the first time.
+CREATE TABLE EMP_TAR
+AS
+SELECT * FROM EMP_SRC;
+outcome:
+status
+Table EMP_TAR successfully created.
+
+==========================================================================================================================================================================
+==========================================================================================================================================================================
+//--SCD -TYPE 1 IMPELMENATION USING STREAMING CDC
+==========================================================================================================================================================================
+==========================================================================================================================================================================
+
+CREATE STREAM EMP_STREAM ON TABLE EMP_SRC;   ---This will take a snapshot of the source table and will create a stream for the source table.
+outcome:
+status
+Stream EMP_STREAM successfully created.
+
+SHOW STREAMS;   --check the stream type (expected standard) also check the additional columns in the stream
+outcome:
+created_on						name		database_name	schema_name			owner				comment	table_name								source_type	base_tables								type	stale	mode	stale_after	invalid_reason	owner_role_type
+2024-05-24 08:04:03.353 -0700	EMP_STREAM	B21_STREAMING	STREAMING_SCHEMA	ACCOUNTADMIN				B21_STREAMING.STREAMING_SCHEMA.EMP_SRC	Table		B21_STREAMING.STREAMING_SCHEMA.EMP_SRC	DELTA	false	DEFAULT	2024-06-07 08:00:08.446 -0700	N/A	ROLE
+
+SELECT * FROM EMP_STREAM;  ---Expected outsome no rows
+outcome:
+Query produced no results
+
+---Inserting two records 
+INSERT INTO EMP_SRC (EMPNO,ENAME,JOB,SAL,DEPTNO) 
+VALUES (8000,'RAJA','MANAGER',5000,20),
+       (8001,'RAJI','MANAGER',5000,30);   
+outcome:
+number of rows inserted
+2
+
+SELECT * FROM EMP_STREAM;     ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE'
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER					5000.00			20		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER					5000.00			30		INSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+==============================================================================================================================================
+//update one of the newly inserted record 
+
+UPDATE EMP_SRC
+SET SAL=6000
+WHERE EMPNO=8000;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM;    ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE', as the update is happening on the new record after creating the stream before 
+                             ---consumption 
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL			COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+8000	RAJA	MANAGER					6000.00				20		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER					5000.00				30	I	NSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+==============================================================================================================================================
+
+//one more update for the same record
+UPDATE EMP_SRC
+SET DEPTNO=35
+WHERE EMPNO=8000;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM;    ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE', , as the update is happening on the new record after creating the stream before 
+                             ---consumption 
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL	COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER					6000.00		35		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER					5000.00		30		INSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+==============================================================================================================================================
+
+//update an existing record which is there before creating the stream
+
+UPDATE EMP_SRC  
+SET COMM=80
+WHERE EMPNO=7839;
+outcome: 
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM;    ---Total 4 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 1 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values )
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7839	KING	PRESIDENT		1981-11-17	5000.00	80.00	10		INSERT			TRUE				52338a7fbc4985e328387812ea4e1e6f808755b0
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			TRUE				52338a7fbc4985e328387812ea4e1e6f808755b0
+==============================================================================================================================================
+
+UPDATE EMP_SRC  
+SET COMM=100
+WHERE EMPNO=7839;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM;    ---Total 4 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 1 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values )
+                             --- There is no change in the number of records however the column values will change in the record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE'
+                             ----will show latest values for the updated record.
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7839	KING	PRESIDENT		1981-11-17	5000.00	100.00	10		INSERT			TRUE				52338a7fbc4985e328387812ea4e1e6f808755b0
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			TRUE				52338a7fbc4985e328387812ea4e1e6f808755b0
+==============================================================================================================================================
+
+DELETE FROM EMP_SRC  WHERE EMPNO=7839;
+outcome:
+number of rows deleted
+1
+
+SELECT * FROM EMP_STREAM;    ---Total 3 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'FALSE' for the updated record with old values )
+                             ---As the record with empno 7839 is deleted, so no need to maintain the updated values.
+outcome:		
+==============================================================================================================================================					 
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				ddbfed779f612037ed128b3f752d6c99e036e831
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				43bae61ade1620248237b0bcaa088ab1936e310a
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			FALSE				52338a7fbc4985e328387812ea4e1e6f808755b0
+==============================================================================================================================================
+//Consuming the stream data
+//A stream can be consumed either
+//by 1. creating a table by querying data from stream(create table <tab_name> as select col_list from <stream_name>) or 
+//by 2. inserting data into a table from the stream (insert into <table_name> selec col_list from <stream_name) or
+//by 3. A merge SQL statement (merge into target_table using <stream_name> join on (primary key) when matched then when not matched then)
+//Note: after consuming the data the stream will become empty and snowflake will take a new snapshot on the table for offset.
+                             
+MERGE INTO EMP_TAR ET
+USING EMP_STREAM ES
+ON (ET.EMPNO= ES.EMPNO)
+WHEN MATCHED AND es.METADATA$action ='DELETE' AND METADATA$ISUPDATE =FALSE THEN
+    DELETE
+WHEN MATCHED AND es.METADATA$action ='INSERT' AND METADATA$ISUPDATE =TRUE THEN 
+    UPDATE SET
+    ET.ENAME= ES.ENAME,
+    ET.SAL= ES.SAL,
+    ET.COMM=ES.COMM,
+    ET.DEPTNO=ES.DEPTNO
+WHEN NOT MATCHED AND es.METADATA$action ='INSERT' AND METADATA$ISUPDATE =FALSE THEN
+    INSERT (ET.EMPNO,ET.ENAME,ET.JOB,ET.SAL,ET.DEPTNO) 
+    VALUES (ES.EMPNO,ES.ENAME,ES.JOB,ES.SAL,ES.DEPTNO) ;  
+----Expected outcome in the target table empno 7839 will get deleted and two new employees 8000 and 8001 are created.   
+outcome:
+number of rows inserted	number of rows updated	number of rows deleted
+2						0						1
+
+SELECT * FROM EMP_TAR WHERE EMPNO IN (8000,8001,7839);  --Expected outcome should return only 2 records 8000 and 8001, since 7839 is deleted it won't be shown.
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL		COMM	DEPTNO
+==============================================================================================================================================
+8001	RAJI	MANAGER					5000.00			30
+8000	RAJA	MANAGER					6000.00			35
+==============================================================================================================================================
+SELECT * FROM EMP_STREAM;     --Expected result empty records.
+outcome:
+Query produced no results
+
+===================================================================END OF SCD TYPE 1=====================================================================================
+
+==========================================================================================================================================================================
+==========================================================================================================================================================================
+//implementing SCD Type 2 implementation using streams
+//in SCD type 2 for every Insert created in the source a new record will get created with the created_date as sysdate and Is_active as '1'
+//when a source table record is updated, then the matching active record in the target table will get updated as 0(in active) and a new record created with the updated column values.
+//when a record is deleted in the source table, then the matching active record in the target table will updated as in active also is_deleted flag will set to '1' to mark the soft deletion.
+==========================================================================================================================================================================
+==========================================================================================================================================================================
+
+create table EMP_SRC_1(
+  empno    number(4,0),
+  ename    varchar2(10),
+  job      varchar2(9),
+  mgr      number(4,0),
+  hiredate date,
+  sal      number(7,2),
+  comm     number(7,2),
+  deptno   number(2,0)
+  );
+outcome:
+status
+Table EMP_SRC_1 successfully created.
+
+Begin
+insert into emp_src_1
+values(
+ 7839, 'KING', 'PRESIDENT', null,
+ to_date('17-11-1981','dd-mm-yyyy'),
+ 5000, null, 10
+);
+
+insert into emp_src_1
+values(
+ 7698, 'BLAKE', 'MANAGER', 7839,
+ to_date('1-5-1981','dd-mm-yyyy'),
+ 2850, null, 30
+);
+insert into emp_src_1
+values(
+ 7782, 'CLARK', 'MANAGER', 7839,
+ to_date('9-6-1981','dd-mm-yyyy'),
+ 2450, null, 10
+);
+insert into emp_src_1
+values(
+ 7566, 'JONES', 'MANAGER', 7839,
+ to_date('2-4-1981','dd-mm-yyyy'),
+ 2975, null, 20
+);
+insert into emp_src_1
+values(
+ 7788, 'SCOTT', 'ANALYST', 7566,
+ to_date('13-07-1987','dd-mm-yyyy'),
+ 3000, null, 20
+);
+insert into emp_src_1
+values(
+ 7902, 'FORD', 'ANALYST', 7566,
+ to_date('3-12-1981','dd-mm-yyyy'),
+ 3000, null, 20
+);
+insert into emp_src_1
+values(
+ 7369, 'SMITH', 'CLERK', 7902,
+ to_date('17-12-1980','dd-mm-yyyy'),
+ 800, null, 20
+);
+insert into emp_src_1
+values(
+ 7499, 'ALLEN', 'SALESMAN', 7698,
+ to_date('20-2-1981','dd-mm-yyyy'),
+ 1600, 300, 30
+);
+insert into emp_src_1
+values(
+ 7521, 'WARD', 'SALESMAN', 7698,
+ to_date('22-2-1981','dd-mm-yyyy'),
+ 1250, 500, 30
+);
+insert into emp_src_1
+values(
+ 7654, 'MARTIN', 'SALESMAN', 7698,
+ to_date('28-9-1981','dd-mm-yyyy'),
+ 1250, 1400, 30
+);
+insert into emp_src_1
+values(
+ 7844, 'TURNER', 'SALESMAN', 7698,
+ to_date('8-9-1981','dd-mm-yyyy'),
+ 1500, 0, 30
+);
+insert into emp_src_1
+values(
+ 7876, 'ADAMS', 'CLERK', 7788,
+ to_date('13-06-1997', 'dd-mm-yyyy'),
+ 1100, null, 20
+);
+insert into emp_src_1
+values(
+ 7900, 'JAMES', 'CLERK', 7698,
+ to_date('3-12-1981','dd-mm-yyyy'),
+ 950, null, 30
+);
+insert into emp_src_1
+values(
+ 7934, 'MILLER', 'CLERK', 7782,
+ to_date('23-1-1982','dd-mm-yyyy'),
+ 1300, null, 10
+);
+commit;
+End;
+outcome:
+anonymous block
+
+//creating the target table from the source table for the first time.
+CREATE OR REPLACE TABLE EMP_TAR_1
+AS
+SELECT * FROM emp_src_1;
+outcome:
+status
+Table EMP_TAR_1 successfully created.
+
+//alter the target table and add created_date, last_modified_date, is_active and is_deleted columns.
+
+ALTER TABLE EMP_TAR_1 
+  ADD COLUMN 
+		CREATED_DATE TIMESTAMP, 
+		LAST_MODIFIED_DATE TIMESTAMP, 
+		IS_ACTIVE INT DEFAULT 1, 
+		IS_DELETED INT DEFAULT 0 ;
+outcome:
+status
+Statement executed successfully.
+
+SELECT * FROM EMP_TAR_1;   ---expected result should return 14 rows
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR		HIREDATE	SAL		COMM	DEPTNO	CREATED_DT	LAST_MODIFIED_DATE	IS_ACTIVE	IS_DELETED
+==============================================================================================================================================
+7839	KING	PRESIDENT			1981-11-17	5000.00			10										1			0
+7698	BLAKE	MANAGER		7839	1981-05-01	2850.00			30										1			0
+7782	CLARK	MANAGER		7839	1981-06-09	2450.00			10										1			0
+7566	JONES	MANAGER		7839	1981-04-02	2975.00			20										1			0
+7788	SCOTT	ANALYST		7566	1987-07-13	3000.00			20										1			0
+7902	FORD	ANALYST		7566	1981-12-03	3000.00			20										1			0
+7369	SMITH	CLERK		7902	1980-12-17	800.00			20										1			0
+7499	ALLEN	SALESMAN	7698	1981-02-20	1600.00	300.00	30										1			0
+7521	WARD	SALESMAN	7698	1981-02-22	1250.00	500.00	30										1			0
+7654	MARTIN	SALESMAN	7698	1981-09-28	1250.00	1400.00	30										1			0
+7844	TURNER	SALESMAN	7698	1981-09-08	1500.00	0.00	30										1			0
+7876	ADAMS	CLERK		7788	1997-06-13	1100.00			20										1			0
+7900	JAMES	CLERK		7698	1981-12-03	950.00			30										1			0
+7934	MILLER	CLERK		7782	1982-01-23	1300.00			10										1			0
+==============================================================================================================================================
+
+//update the column created_date as current timestamp for the all the existing records.
+UPDATE EMP_TAR_1
+SET CREATED_DATE =CURRENT_TIMESTAMP();
+
+SELECT * FROM EMP_TAR_1;
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR		HIREDATE	SAL		COMM	DEPTNO	CREATED_DATE			LAST_MODIFIED_DATE	IS_ACTIVE	IS_DELETED
+==============================================================================================================================================
+7839	KING	PRESIDENT			1981-11-17	5000.00			10		2024-05-24 08:31:09.279						1			0
+7698	BLAKE	MANAGER		7839	1981-05-01	2850.00			30		2024-05-24 08:31:09.279						1			0
+7782	CLARK	MANAGER		7839	1981-06-09	2450.00			10		2024-05-24 08:31:09.279						1			0
+7566	JONES	MANAGER		7839	1981-04-02	2975.00			20		2024-05-24 08:31:09.279						1			0
+7788	SCOTT	ANALYST		7566	1987-07-13	3000.00			20		2024-05-24 08:31:09.279						1			0
+7902	FORD	ANALYST		7566	1981-12-03	3000.00			20		2024-05-24 08:31:09.279						1			0
+7369	SMITH	CLERK		7902	1980-12-17	800.00			20		2024-05-24 08:31:09.279						1			0
+7499	ALLEN	SALESMAN	7698	1981-02-20	1600.00	300.00	30		2024-05-24 08:31:09.279						1			0
+7521	WARD	SALESMAN	7698	1981-02-22	1250.00	500.00	30		2024-05-24 08:31:09.279						1			0
+7654	MARTIN	SALESMAN	7698	1981-09-28	1250.00	1400.00	30		2024-05-24 08:31:09.279						1			0
+7844	TURNER	SALESMAN	7698	1981-09-08	1500.00	0.00	30		2024-05-24 08:31:09.279						1			0
+7876	ADAMS	CLERK		7788	1997-06-13	1100.00			20		2024-05-24 08:31:09.279						1			0
+7900	JAMES	CLERK		7698	1981-12-03	950.00			30		2024-05-24 08:31:09.279						1			0
+7934	MILLER	CLERK		7782	1982-01-23	1300.00			10		2024-05-24 08:31:09.279						1			0
+==============================================================================================================================================
+
+//creating stream for the table emp_src_1
+CREATE STREAM EMP_STREAM_1 ON TABLE EMP_SRC_1;
+
+SHOW STREAMS;   --expected outcome it shows the streams EMP_STREAM and EMP_STREAM_1.
+outcome:
+============================================================================================================================================================================================================================================================================================
+created_on						name			database_name	schema_name	owner	comment			table_name									source_type	base_tables									type	stale	mode	stale_after						invalid_reason	owner_role_type
+============================================================================================================================================================================================================================================================================================
+2024-05-24 08:09:02.330 -0700	EMP_STREAM		B21_STREAMING	STREAMING_SCHEMA	ACCOUNTADMIN	B21_STREAMING.STREAMING_SCHEMA.EMP_SRC		Table		B21_STREAMING.STREAMING_SCHEMA.EMP_SRC		DELTA	false	DEFAULT	2024-06-07 08:20:17.839 -0700	N/A				ROLE
+2024-05-24 08:34:26.102 -0700	EMP_STREAM_1	B21_STREAMING	STREAMING_SCHEMA	ACCOUNTADMIN	B21_STREAMING.STREAMING_SCHEMA.EMP_SRC_1	Table		B21_STREAMING.STREAMING_SCHEMA.EMP_SRC_1	DELTA	false	DEFAULT	2024-06-07 08:29:26.317 -0700	N/A				ROLE
+============================================================================================================================================================================================================================================================================================
+//insert 2 records into the source table 
+INSERT INTO EMP_SRC_1 (EMPNO,ENAME,JOB,SAL,DEPTNO) 
+VALUES (8000,'RAJA','MANAGER',5000,20),
+       (8001,'RAJI','MANAGER',5000,30);
+outcome:
+number of rows inserted
+2
+
+SELECT * FROM EMP_STREAM_1;   ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE'
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER					5000.00			20		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER					5000.00			30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+==============================================================================================================================================
+
+//update one of the newly inserted record 
+
+UPDATE EMP_SRC_1
+SET SAL=6000
+WHERE EMPNO=8000;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM_1;  ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE', as the update is happening on the new record after creating the stream before 
+                             ---consumption 
+outcome:			
+==============================================================================================================================================				 
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL			COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER					6000.00				20		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER					5000.00				30	I	NSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+==============================================================================================================================================
+
+//one more update for the same record
+UPDATE EMP_SRC_1
+SET DEPTNO=35
+WHERE EMPNO=8000;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM_1;  ---2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE', , as the update is happening on the new record after creating the stream before 
+                             ---consumption 
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB		MGR	HIREDATE	SAL	COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER					6000.00		35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER					5000.00		30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+==============================================================================================================================================
+//update an existing record which is there before creating the stream
+
+UPDATE EMP_SRC_1  
+SET COMM=80
+WHERE EMPNO=7839;
+outcome: 
+number of rows updated	number of multi-joined rows updated
+1						0
+
+
+SELECT * FROM EMP_STREAM_1;  ---Total 4 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 1 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values )
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7839	KING	PRESIDENT		1981-11-17	5000.00	80.00	10		INSERT			TRUE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			TRUE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+==============================================================================================================================================
+
+UPDATE EMP_SRC_1 
+SET COMM=100
+WHERE EMPNO=7839;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+
+SELECT * FROM EMP_STREAM_1;   ---Total 4 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 2 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values )
+                             --- There is no chang in the number of records however the column values will change in the record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE'
+                             ----will show latest values for the updated record.
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7839	KING	PRESIDENT		1981-11-17	5000.00	100.00	10		INSERT			TRUE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			TRUE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+==============================================================================================================================================
+
+DELETE FROM EMP_SRC_1  WHERE EMPNO=7839;
+outcome:
+number of rows deleted
+1
+
+SELECT * FROM EMP_STREAM_1;  ---Total 3 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'FALSE' for the updated record with old values )
+                             ---As the record with empno 7839 is deleted, so no need to maintain the updated values.
+outcome:							 
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR	HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+8000	RAJA	MANAGER						6000.00			35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER						5000.00			30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+7839	KING	PRESIDENT		1981-11-17	5000.00			10		DELETE			FALSE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+==============================================================================================================================================
+
+//update another existing record in the source table 
+UPDATE EMP_SRC_1  
+SET DEPTNO=60
+WHERE EMPNO=7566;
+outcome:
+number of rows updated	number of multi-joined rows updated
+1						0
+
+SELECT * FROM EMP_STREAM_1;  ---Total 5 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records and
+                             ---                 1 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values and
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'FALSE' for the updated record with old values )
+outcome:
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR		HIREDATE	SAL	COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7566	JONES	MANAGER		7839	1981-04-02	2975.00		60		INSERT			TRUE				7beed260b0c0e3240fceab84b6d235e8a339d759
+8000	RAJA	MANAGER							5000.00		35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER							5000.00		30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+7566	JONES	MANAGER		7839	1981-04-02	2975.00		20		DELETE			TRUE				7beed260b0c0e3240fceab84b6d235e8a339d759
+7839	KING	PRESIDENT			1981-11-17	5000.00		10		DELETE			FALSE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+==============================================================================================================================================
+//delete one more existing record in the source table
+DELETE FROM EMP_SRC_1  WHERE EMPNO=7782;
+outcome:
+number of rows deleted
+1
+
+SELECT * FROM EMP_STREAM_1;  ---Total 6 records (2 records with Metadataaction = 'INSERT' and metadataisupdate = 'FALSE' for the newly inserted records and
+                             ---                 1 record with Metadataaction = 'INSERT' and metadataisupdate = 'TRUE' for the updated record with new column values and 
+                             ---                 1 record with Metadataaction = 'DELETE' and metadataisupdate = 'TRUE' for the updated record with old values and
+                             ---                 2 record with Metadataaction = 'DELETE' and metadataisupdate = 'FALSE' for the updated record with old values
+==============================================================================================================================================
+EMPNO	ENAME	JOB			MGR		HIREDATE	SAL		COMM	DEPTNO	METADATA$ACTION	METADATA$ISUPDATE	METADATA$ROW_ID
+==============================================================================================================================================
+7566	JONES	MANAGER		7839	1981-04-02	2975.00			60		INSERT			TRUE				7beed260b0c0e3240fceab84b6d235e8a339d759
+8000	RAJA	MANAGER							5000.00			35		INSERT			FALSE				a0d3a61ad635a84f66e593d03754fcffcfe9f1ef
+8001	RAJI	MANAGER							5000.00			30		INSERT			FALSE				662abf39199d1cd137b6a25f26947802ac1bcabf
+7566	JONES	MANAGER		7839	1981-04-02	2975.00			20		DELETE			TRUE				7beed260b0c0e3240fceab84b6d235e8a339d759
+7839	KING	PRESIDENT			1981-11-17	5000.00			10		DELETE			FALSE				9fc29c69dd6bf4f887e23d27a561c173840adab9
+7782	CLARK	MANAGER		7839	1981-06-09	2450.00			10		DELETE			FALSE				3c7dfdab7de0c456cbae83be0123e895d78bad1b
+==============================================================================================================================================
+//consuming data from the stream
+
+MERGE INTO EMP_TAR_1 ET
+USING EMP_STREAM_1 ES
+ON (ET.EMPNO= ES.EMPNO AND es.METADATA$action <>'INSERT') 
+WHEN MATCHED AND es.METADATA$action ='DELETE' AND METADATA$ISUPDATE =FALSE THEN
+    --Applying Soft Delete on the target table for the record permanently deleted from the source table.
+            UPDATE SET
+            ET.LAST_MODIFIED_DATE = CURRENT_TIMESTAMP(),
+            ET.IS_ACTIVE =0,
+            ET.IS_DELETED =1 
+WHEN MATCHED AND es.METADATA$action ='DELETE' AND METADATA$ISUPDATE =TRUE THEN 
+    --marking the currently active record as inactive in the target table as this record is now updated with set of column values, 
+	--hence the previous version become obslete
+        UPDATE SET
+        ET.LAST_MODIFIED_DATE = CURRENT_TIMESTAMP(),
+        ET.IS_ACTIVE =0
+WHEN NOT MATCHED AND es.METADATA$action ='INSERT' THEN
+    ---inserting the newly inserted records and updated records with new column values as a fresh set of row in the 
+	---target table with is_active flag as '1'.
+    INSERT (ET.EMPNO,ET.ENAME,ET.JOB,ET.SAL,ET.DEPTNO,CREATED_DATE) 
+	VALUES (ES.EMPNO,ES.ENAME,ES.JOB,ES.SAL,ES.DEPTNO,CURRENT_TIMESTAMP()) ;
+---expected result
+---Target table should have 17 records
+---14 records with is_active flag as 1
+--- 2 records with is_active flag as 0 and is_delete flag as 1 (for the delete records)
+--- 1 record with is_active flag as 0 and is_delete flag as 0 (for the delete records)
+outcome:
+number of rows inserted	number of rows updated
+3						3
+
+SELECT COUNT(1) ACTIVE_RECORDS FROM EMP_TAR_1 WHERE IS_ACTIVE = 1;
+outcome:
+ACTIVE_RECORDS
+14
+
+SELECT COUNT(1) SOFT_DELETED_RECORDS FROM EMP_TAR_1 WHERE IS_DELETED = 1;
+outcome:
+SOFT_DELETED_RECORDS
+2
+
+SELECT COUNT(1) IN_ACTIVE_RECORDS FROM EMP_TAR_1 WHERE IS_ACTIVE = 0 AND IS_DELETED = 0;
+outcome:
+IN_ACTIVE_RECORDS
+1
+
+SELECT * FROM EMP_TAR_1;
+outcome:
+EMPNO|ENAME |JOB      |MGR |HIREDATE  |SAL    |COMM   |DEPTNO|CREATED_DATE           |LAST_MODIFIED_DATE     |IS_ACTIVE|IS_DELETED|
+-----+------+---------+----+----------+-------+-------+------+-----------------------+-----------------------+---------+----------+
+ 8000|RAJA  |MANAGER  |    |          |5000.00|       |    35|2024-05-24 08:59:07.551|                       |        1|         0|
+ 7566|JONES |MANAGER  |    |          |2975.00|       |    60|2024-05-24 08:59:07.551|                       |        1|         0|
+ 8001|RAJI  |MANAGER  |    |          |5000.00|       |    30|2024-05-24 08:59:07.551|                       |        1|         0|
+ 7698|BLAKE |MANAGER  |7839|1981-05-01|2850.00|       |    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7839|KING  |PRESIDENT|    |1981-11-17|5000.00|       |    10|2024-05-24 08:31:09.279|2024-05-24 08:59:07.551|        0|         1|
+ 7782|CLARK |MANAGER  |7839|1981-06-09|2450.00|       |    10|2024-05-24 08:31:09.279|2024-05-24 08:59:07.551|        0|         1|
+ 7566|JONES |MANAGER  |7839|1981-04-02|2975.00|       |    20|2024-05-24 08:31:09.279|2024-05-24 08:59:07.551|        0|         0|
+ 7788|SCOTT |ANALYST  |7566|1987-07-13|3000.00|       |    20|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7902|FORD  |ANALYST  |7566|1981-12-03|3000.00|       |    20|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7369|SMITH |CLERK    |7902|1980-12-17| 800.00|       |    20|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7499|ALLEN |SALESMAN |7698|1981-02-20|1600.00| 300.00|    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7521|WARD  |SALESMAN |7698|1981-02-22|1250.00| 500.00|    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7654|MARTIN|SALESMAN |7698|1981-09-28|1250.00|1400.00|    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7844|TURNER|SALESMAN |7698|1981-09-08|1500.00|   0.00|    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7876|ADAMS |CLERK    |7788|1997-06-13|1100.00|       |    20|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7900|JAMES |CLERK    |7698|1981-12-03| 950.00|       |    30|2024-05-24 08:31:09.279|                       |        1|         0|
+ 7934|MILLER|CLERK    |7782|1982-01-23|1300.00|       |    10|2024-05-24 08:31:09.279|                       |        1|         0|
+SELECT * FROM EMP_STREAM_1 ;  ---Expected result 0 rows.
+
+===============================================================================================================================================
+
+Creating a Task to run the merge command in a regular interval.
+
+CREATE TASK EMP_CDC_SCD_1_TASK
+WAREHOUSE = 'COMPUTE_WH'
+SCHEDULE='2 MINUTE'
+ALLOW_OVERLAPPING_EXECUTION=FALSE
+USER_TASK_TIMEOUT_MS=600000
+SUSPEND_TASK_AFTER_NUM_FAILURES=3
+COMMENT='THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR'
+TASK_AUTO_RETRY_ATTEMPTS=3
+AS
+MERGE INTO EMP_TAR ET
+USING EMP_STREAM ES
+ON (ET.EMPNO= ES.EMPNO)
+WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN
+    DELETE
+WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN 
+    UPDATE SET
+    ET.ENAME= ES.ENAME,
+    ET.SAL= ES.SAL,
+    ET.COMM=ES.COMM,
+    ET.DEPTNO=ES.DEPTNO
+WHEN NOT MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =FALSE THEN
+    INSERT (ET.EMPNO,ET.ENAME,ET.JOB,ET.SAL,ET.DEPTNO) 
+    VALUES (ES.EMPNO,ES.ENAME,ES.JOB,ES.SAL,ES.DEPTNO); 
+	
+To check whether the task is created or not
+SHOW TASKS;
+created_on             |name              |id                                  |database_name|schema_name     |owner       |comment                                                                                                   |warehouse |schedule|predecessors|state    |definition                                                                                                                                                                                                                                                     |condition|allow_overlapping_execution|error_integration|last_committed_on|last_suspended_on|owner_role_type|config|budget|task_relations     |last_suspended_reason|
+-----------------------+------------------+------------------------------------+-------------+----------------+------------+----------------------------------------------------------------------------------------------------------+----------+--------+------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------+---------------------------+-----------------+-----------------+-----------------+---------------+------+------+-------------------+---------------------+
+2024-05-27 00:48:59.596|EMP_CDC_SCD_1_TASK|01b49698-be65-0d8e-0000-000000000002|B21_STREAMING|STREAMING_SCHEMA|ACCOUNTADMIN|THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR|COMPUTE_WH|2 MINUTE|[]          |suspended|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |         |false                      |null             |                 |                 |ROLE           |      |      |{"Predecessors":[]}|                     |
+
+To check the task execution history
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+ORDER BY SCHEDULED_TIME;
+
+QUERY_ID|NAME|DATABASE_NAME|SCHEMA_NAME|QUERY_TEXT|CONDITION_TEXT|STATE|ERROR_CODE|ERROR_MESSAGE|SCHEDULED_TIME|QUERY_START_TIME|NEXT_SCHEDULED_TIME|COMPLETED_TIME|ROOT_TASK_ID|GRAPH_VERSION|RUN_ID|RETURN_VALUE|SCHEDULED_FROM|ATTEMPT_NUMBER|CONFIG|QUERY_HASH|QUERY_HASH_VERSION|QUERY_PARAMETERIZED_HASH|QUERY_PARAMETERIZED_HASH_VERSION|GRAPH_RUN_GROUP_ID|BACKFILL_INFO|
+--------+----+-------------+-----------+----------+--------------+-----+----------+-------------+--------------+----------------+-------------------+--------------+------------+-------------+------+------------+--------------+--------------+------+----------+------------------+------------------------+--------------------------------+------------------+-------------+
+
+Enable the task status to Resume from suspended status
+
+ALTER TASK EMP_CDC_SCD_1_TASK RESUME;
+Note: To perform this opeation the role must have EXECUTE_TASK Previlege. Account admin must granted the access to the the role.
+
+After enabling the status to resume check the task history.
+
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+ORDER BY SCHEDULED_TIME;
+
+QUERY_ID                            |NAME              |DATABASE_NAME|SCHEMA_NAME     |QUERY_TEXT                                                                                                                                                                                                                                                     |CONDITION_TEXT|STATE    |ERROR_CODE|ERROR_MESSAGE|SCHEDULED_TIME         |QUERY_START_TIME       |NEXT_SCHEDULED_TIME    |COMPLETED_TIME         |ROOT_TASK_ID                        |GRAPH_VERSION|RUN_ID       |RETURN_VALUE|SCHEDULED_FROM|ATTEMPT_NUMBER|CONFIG|QUERY_HASH                      |QUERY_HASH_VERSION|QUERY_PARAMETERIZED_HASH        |QUERY_PARAMETERIZED_HASH_VERSION|GRAPH_RUN_GROUP_ID                  |BACKFILL_INFO|
+------------------------------------+------------------+-------------+----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------+---------+----------+-------------+-----------------------+-----------------------+-----------------------+-----------------------+------------------------------------+-------------+-------------+------------+--------------+--------------+------+--------------------------------+------------------+--------------------------------+--------------------------------+------------------------------------+-------------+
+01b496a2-3202-974d-0001-c8360003a042|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 00:58:49.539|2024-05-27 00:58:50.987|2024-05-27 01:00:49.539|2024-05-27 00:58:52.053|01b49698-be65-0d8e-0000-000000000002|            1|1716735529539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|408666d7-84a0-4228-baa1-efc41fc35037|             |
+01b496a5-3202-974e-0001-c8360003c04a|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 01:00:49.539|2024-05-27 01:01:16.299|2024-05-27 01:02:49.539|2024-05-27 01:01:19.509|01b49698-be65-0d8e-0000-000000000002|            1|1716735649539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|18958540-c1b7-4ca8-9ed4-6f3c749da7b4|             |
+01b496a6-3202-9741-0001-c8360003f00a|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 01:02:49.539|2024-05-27 01:02:55.498|2024-05-27 01:04:49.539|2024-05-27 01:02:57.105|01b49698-be65-0d8e-0000-000000000002|            1|1716735769539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|0ab64221-2a67-4052-94a0-b41503313d77|             |
+01b496a8-3202-974d-0001-c8360003a05a|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 01:04:49.539|2024-05-27 01:04:50.860|2024-05-27 01:06:49.539|2024-05-27 01:04:52.053|01b49698-be65-0d8e-0000-000000000002|            1|1716735889539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|4900389d-c01b-4cae-af6e-9d4ec04cdeda|             |
+01b496aa-3202-973c-0001-c8360003d01e|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 01:06:49.539|2024-05-27 01:06:50.266|2024-05-27 01:08:49.539|2024-05-27 01:06:51.572|01b49698-be65-0d8e-0000-000000000002|            1|1716736009539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|5813253c-5e59-4bd9-92be-9ba71cf71142|             |
+01b496ac-3202-974d-0001-c8360003a066|EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SUCCEEDED|          |             |2024-05-27 01:08:49.539|2024-05-27 01:08:50.847|2024-05-27 01:10:49.539|2024-05-27 01:08:52.073|01b49698-be65-0d8e-0000-000000000002|            1|1716736129539|            |SCHEDULE      |             1|      |578e5bad5bb4bd1efe6c3209123e594f|                 2|578e5bad5bb4bd1efe6c3209123e594f|                               1|a2c39a0b-0fa5-4f99-81c7-5eadb2c57384|             |
+                                    |EMP_CDC_SCD_1_TASK|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |              |SCHEDULED|          |             |2024-05-27 01:10:49.539|                       |2024-05-27 01:12:49.539|                       |01b49698-be65-0d8e-0000-000000000002|            1|1716736249539|            |SCHEDULE      |             1|      |                                |                  |                                |                                |c410e8b3-ab9f-4939-b9f4-c68a8c324710|             |
+									
+									
+How to check whether the task is working as expected.
+
+Perform some DML operations on the source table and check the target table after 2 minutes;
+
+SELECT current_timestamp()::TIMESTAMP_NTZ timestamp,e.* FROM emp_src e;
+TIMESTAMP              |EMPNO|ENAME |JOB     |MGR |HIREDATE  |SAL    |COMM   |DEPTNO|
+-----------------------+-----+------+--------+----+----------+-------+-------+------+
+2024-05-26 08:16:01.460| 7698|BLAKE |MANAGER |7839|1981-05-01|2850.00|       |    30|
+2024-05-26 08:16:01.460| 7782|CLARK |MANAGER |7839|1981-06-09|2450.00|       |    10|
+2024-05-26 08:16:01.460| 7566|JONES |MANAGER |7839|1981-04-02|2975.00|       |    20|
+2024-05-26 08:16:01.460| 7788|SCOTT |ANALYST |7566|1987-07-13|3000.00|       |    20|
+2024-05-26 08:16:01.460| 7902|FORD  |ANALYST |7566|1981-12-03|3000.00|       |    20|
+2024-05-26 08:16:01.460| 7369|SMITH |CLERK   |7902|1980-12-17| 800.00|       |    20|
+2024-05-26 08:16:01.460| 7499|ALLEN |SALESMAN|7698|1981-02-20|1600.00| 300.00|    30|
+2024-05-26 08:16:01.460| 7521|WARD  |SALESMAN|7698|1981-02-22|1250.00| 500.00|    30|
+2024-05-26 08:16:01.460| 7654|MARTIN|SALESMAN|7698|1981-09-28|1250.00|1400.00|    30|
+2024-05-26 08:16:01.460| 7844|TURNER|SALESMAN|7698|1981-09-08|1500.00|   0.00|    30|
+2024-05-26 08:16:01.460| 7876|ADAMS |CLERK   |7788|1997-06-13|1100.00|       |    20|
+2024-05-26 08:16:01.460| 7900|JAMES |CLERK   |7698|1981-12-03| 950.00|       |    30|
+2024-05-26 08:16:01.460| 7934|MILLER|CLERK   |7782|1982-01-23|1300.00|       |    10|
+2024-05-26 08:16:01.460| 8000|RAJA  |MANAGER |    |          |6000.00|       |    35|
+2024-05-26 08:16:01.460| 8001|RAJI  |MANAGER |    |          |5000.00|       |    30|
+
+Now perform some DML operation on the source table
+
+BEGIN
+UPDATE EMP_SRC
+SET COMM = 250
+WHERE EMPNO = 8000;
+
+UPDATE EMP_SRC
+SET COMM = 500
+WHERE EMPNO = 8001;
+
+DELETE FROM EMP_SRC
+WHERE EMPNO = 7934;
+
+INSERT INTO EMP_SRC(EMPNO,ENAME,JOB,SAL,DEPTNO) VALUES (7556,'NANDA','ANALYST',9500,20);
+COMMIT;
+END;
+
+select * from emp_stream;
+EMPNO|ENAME |JOB    |MGR |HIREDATE  |SAL    |COMM  |DEPTNO|METADATA$ACTION|METADATA$ISUPDATE|METADATA$ROW_ID                         |
+-----+------+-------+----+----------+-------+------+------+---------------+-----------------+----------------------------------------+
+ 8000|RAJA  |MANAGER|    |          |6000.00|250.00|    35|INSERT         |true             |ddbfed779f612037ed128b3f752d6c99e036e831|
+ 8001|RAJI  |MANAGER|    |          |5000.00|500.00|    30|INSERT         |true             |43bae61ade1620248237b0bcaa088ab1936e310a|
+ 7556|NANDA |ANALYST|    |          |9500.00|      |    20|INSERT         |false            |34909d2c3ae2a070c7faa2b74a2f369a441001c1|
+ 8000|RAJA  |MANAGER|    |          |6000.00|      |    35|DELETE         |true             |ddbfed779f612037ed128b3f752d6c99e036e831|
+ 8001|RAJI  |MANAGER|    |          |5000.00|      |    30|DELETE         |true             |43bae61ade1620248237b0bcaa088ab1936e310a|
+ 7934|MILLER|CLERK  |7782|1982-01-23|1300.00|      |    10|DELETE         |false            |105ead971791123e947e3dd9701ce817d1eff6d8|
+
+Checking the data in target table immediate ;
+select * from emp_tar;
+TIMESTAMP              |EMPNO|ENAME |JOB     |MGR |HIREDATE  |SAL    |COMM   |DEPTNO|
+-----------------------+-----+------+--------+----+----------+-------+-------+------+
+2024-05-26 08:22:39.169| 8001|RAJI  |MANAGER |    |          |5000.00|       |    30|
+2024-05-26 08:22:39.169| 8000|RAJA  |MANAGER |    |          |6000.00|       |    35|
+2024-05-26 08:22:39.169| 7698|BLAKE |MANAGER |7839|1981-05-01|2850.00|       |    30|
+2024-05-26 08:22:39.169| 7782|CLARK |MANAGER |7839|1981-06-09|2450.00|       |    10|
+2024-05-26 08:22:39.169| 7566|JONES |MANAGER |7839|1981-04-02|2975.00|       |    20|
+2024-05-26 08:22:39.169| 7788|SCOTT |ANALYST |7566|1987-07-13|3000.00|       |    20|
+2024-05-26 08:22:39.169| 7902|FORD  |ANALYST |7566|1981-12-03|3000.00|       |    20|
+2024-05-26 08:22:39.169| 7369|SMITH |CLERK   |7902|1980-12-17| 800.00|       |    20|
+2024-05-26 08:22:39.169| 7499|ALLEN |SALESMAN|7698|1981-02-20|1600.00| 300.00|    30|
+2024-05-26 08:22:39.169| 7521|WARD  |SALESMAN|7698|1981-02-22|1250.00| 500.00|    30|
+2024-05-26 08:22:39.169| 7654|MARTIN|SALESMAN|7698|1981-09-28|1250.00|1400.00|    30|
+2024-05-26 08:22:39.169| 7844|TURNER|SALESMAN|7698|1981-09-08|1500.00|   0.00|    30|
+2024-05-26 08:22:39.169| 7876|ADAMS |CLERK   |7788|1997-06-13|1100.00|       |    20|
+2024-05-26 08:22:39.169| 7900|JAMES |CLERK   |7698|1981-12-03| 950.00|       |    30|
+2024-05-26 08:22:39.169| 7934|MILLER|CLERK   |7782|1982-01-23|1300.00|       |    10|
+
+the changes are not available, execute the query again.
+select * from emp_tar;
+TIMESTAMP              |EMPNO|ENAME |JOB     |MGR |HIREDATE  |SAL    |COMM   |DEPTNO|
+-----------------------+-----+------+--------+----+----------+-------+-------+------+
+2024-05-26 08:23:23.109| 7556|NANDA |ANALYST |    |          |9500.00|       |    20|
+2024-05-26 08:23:23.109| 7698|BLAKE |MANAGER |7839|1981-05-01|2850.00|       |    30|
+2024-05-26 08:23:23.109| 7782|CLARK |MANAGER |7839|1981-06-09|2450.00|       |    10|
+2024-05-26 08:23:23.109| 7566|JONES |MANAGER |7839|1981-04-02|2975.00|       |    20|
+2024-05-26 08:23:23.109| 7788|SCOTT |ANALYST |7566|1987-07-13|3000.00|       |    20|
+2024-05-26 08:23:23.109| 7902|FORD  |ANALYST |7566|1981-12-03|3000.00|       |    20|
+2024-05-26 08:23:23.109| 7369|SMITH |CLERK   |7902|1980-12-17| 800.00|       |    20|
+2024-05-26 08:23:23.109| 7499|ALLEN |SALESMAN|7698|1981-02-20|1600.00| 300.00|    30|
+2024-05-26 08:23:23.109| 7521|WARD  |SALESMAN|7698|1981-02-22|1250.00| 500.00|    30|
+2024-05-26 08:23:23.109| 7654|MARTIN|SALESMAN|7698|1981-09-28|1250.00|1400.00|    30|
+2024-05-26 08:23:23.109| 7844|TURNER|SALESMAN|7698|1981-09-08|1500.00|   0.00|    30|
+2024-05-26 08:23:23.109| 7876|ADAMS |CLERK   |7788|1997-06-13|1100.00|       |    20|
+2024-05-26 08:23:23.109| 7900|JAMES |CLERK   |7698|1981-12-03| 950.00|       |    30|
+2024-05-26 08:23:23.109| 8001|RAJI  |MANAGER |    |          |5000.00| 500.00|    30|
+2024-05-26 08:23:23.109| 8000|RAJA  |MANAGER |    |          |6000.00| 250.00|    35|
+Now the chagnes are applied into target table.
+
+check the stream data.
+select * from emp_stream;
+EMPNO|ENAME|JOB|MGR|HIREDATE|SAL|COMM|DEPTNO|METADATA$ACTION|METADATA$ISUPDATE|METADATA$ROW_ID|
+-----+-----+---+---+--------+---+----+------+---------------+-----------------+---------------+
+
+nothing to show as the CDC data already consumed
+
+alter task EMP_CDC_SCD_1_TASK suspend;
+
+show tasks;
+
+created_on             |name              |id                                  |database_name|schema_name     |owner       |comment                                                                                                   |warehouse |schedule|predecessors|state    |definition                                                                                                                                                                                                                                                     |condition|allow_overlapping_execution|error_integration|last_committed_on      |last_suspended_on      |owner_role_type|config|budget|task_relations     |last_suspended_reason|
+-----------------------+------------------+------------------------------------+-------------+----------------+------------+----------------------------------------------------------------------------------------------------------+----------+--------+------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------+---------------------------+-----------------+-----------------------+-----------------------+---------------+------+------+-------------------+---------------------+
+2024-05-27 00:48:59.596|EMP_CDC_SCD_1_TASK|01b49698-be65-0d8e-0000-000000000002|B21_STREAMING|STREAMING_SCHEMA|ACCOUNTADMIN|THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR|COMPUTE_WH|2 MINUTE|[]          |suspended|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |         |false                      |null             |2024-05-27 00:56:49.502|2024-05-27 01:29:15.406|ROLE           |      |      |{"Predecessors":[]}|USER_SUSPENDED       |
+
+Now create another task with 'WHEN' option in the task.
+ADD THE PARAMETER WHEN (SYSTEM$STREAM_HAS_DATA('EMP_STREAM')). This will make sure that the task is executed only when there is some data in the stream.
+
+CREATE TASK EMP_CDC_SCD_1_TASK_1
+WAREHOUSE = 'COMPUTE_WH'
+SCHEDULE='2 MINUTE'
+ALLOW_OVERLAPPING_EXECUTION=FALSE
+USER_TASK_TIMEOUT_MS=600000
+SUSPEND_TASK_AFTER_NUM_FAILURES=3
+COMMENT='THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR'
+TASK_AUTO_RETRY_ATTEMPTS=3
+WHEN (SYSTEM$STREAM_HAS_DATA('EMP_STREAM'))
+AS
+MERGE INTO EMP_TAR ET
+USING EMP_STREAM ES
+ON (ET.EMPNO= ES.EMPNO)
+WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN
+    DELETE
+WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN 
+    UPDATE SET
+    ET.ENAME= ES.ENAME,
+    ET.SAL= ES.SAL,
+    ET.COMM=ES.COMM,
+    ET.DEPTNO=ES.DEPTNO
+WHEN NOT MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =FALSE THEN
+    INSERT (ET.EMPNO,ET.ENAME,ET.JOB,ET.SAL,ET.DEPTNO) 
+    VALUES (ES.EMPNO,ES.ENAME,ES.JOB,ES.SAL,ES.DEPTNO); 
+	
+ALTER TASK EMP_CDC_SCD_1_TASK_1 RESUME;
+
+SHOW TASKS;
+created_on             |name                |id                                  |database_name|schema_name     |owner       |comment                                                                                                   |warehouse |schedule|predecessors|state    |definition                                                                                                                                                                                                                                                     |condition                             |allow_overlapping_execution|error_integration|last_committed_on      |last_suspended_on      |owner_role_type|config|budget|task_relations     |last_suspended_reason|
+-----------------------+--------------------+------------------------------------+-------------+----------------+------------+----------------------------------------------------------------------------------------------------------+----------+--------+------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------------------------+---------------------------+-----------------+-----------------------+-----------------------+---------------+------+------+-------------------+---------------------+
+2024-05-27 00:48:59.596|EMP_CDC_SCD_1_TASK  |01b49698-be65-0d8e-0000-000000000002|B21_STREAMING|STREAMING_SCHEMA|ACCOUNTADMIN|THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR|COMPUTE_WH|2 MINUTE|[]          |suspended|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |                                      |false                      |null             |2024-05-27 00:56:49.502|2024-05-27 01:29:15.406|ROLE           |      |      |{"Predecessors":[]}|USER_SUSPENDED       |
+2024-05-27 01:32:48.686|EMP_CDC_SCD_1_TASK_1|01b496c4-c0b9-be94-0000-000000000003|B21_STREAMING|STREAMING_SCHEMA|ACCOUNTADMIN|THIS TASK IS CREATED TO SCHEDULE THE EMP TABLE SCD TYPE 1 IMPLEMENTATION MOVE DATA FROM EMP_SCR TO EMP_TAR|COMPUTE_WH|2 MINUTE|[]          |started  |MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |(SYSTEM$STREAM_HAS_DATA('EMP_STREAM'))|false                      |null             |2024-05-27 01:33:22.978|                       |ROLE           |      |      |{"Predecessors":[]}|                     |
+
+Checking the task history.
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+WHERE NAME = 'EMP_CDC_SCD_1_TASK_1'
+ORDER BY SCHEDULED_TIME;
+
+QUERY_ID|NAME                |DATABASE_NAME|SCHEMA_NAME     |QUERY_TEXT                                                                                                                                                                                                                                                     |CONDITION_TEXT                        |STATE    |ERROR_CODE|ERROR_MESSAGE                                      |SCHEDULED_TIME         |QUERY_START_TIME|NEXT_SCHEDULED_TIME    |COMPLETED_TIME         |ROOT_TASK_ID                        |GRAPH_VERSION|RUN_ID       |RETURN_VALUE|SCHEDULED_FROM|ATTEMPT_NUMBER|CONFIG|QUERY_HASH|QUERY_HASH_VERSION|QUERY_PARAMETERIZED_HASH|QUERY_PARAMETERIZED_HASH_VERSION|GRAPH_RUN_GROUP_ID                  |BACKFILL_INFO|
+--------+--------------------+-------------+----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------------------------+---------+----------+---------------------------------------------------+-----------------------+----------------+-----------------------+-----------------------+------------------------------------+-------------+-------------+------------+--------------+--------------+------+----------+------------------+------------------------+--------------------------------+------------------------------------+-------------+
+        |EMP_CDC_SCD_1_TASK_1|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |(SYSTEM$STREAM_HAS_DATA('EMP_STREAM'))|SKIPPED  |0040003   |Conditional expression for task evaluated to false.|2024-05-27 01:35:23.017|                |2024-05-27 01:37:23.017|2024-05-27 01:35:26.165|01b496c4-c0b9-be94-0000-000000000003|            1|1716737723017|            |SCHEDULE      |             1|      |          |                  |                        |                                |bd1b80fd-680c-468e-ac74-e1c2f8f4aac2|             |
+        |EMP_CDC_SCD_1_TASK_1|B21_STREAMING|STREAMING_SCHEMA|MERGE INTO EMP_TAR ET¶USING EMP_STREAM ES¶ON (ET.EMPNO= ES.EMPNO)¶WHEN MATCHED AND ES.METADATA$ACTION ='DELETE' AND METADATA$ISUPDATE =FALSE THEN¶    DELETE¶WHEN MATCHED AND ES.METADATA$ACTION ='INSERT' AND METADATA$ISUPDATE =TRUE THEN ¶    UPDATE SET¶   |(SYSTEM$STREAM_HAS_DATA('EMP_STREAM'))|SCHEDULED|          |                                                   |2024-05-27 01:37:23.017|                |2024-05-27 01:39:23.017|                       |01b496c4-c0b9-be94-0000-000000000003|            1|1716737843017|            |SCHEDULE      |             1|      |          |                  |                        |                                |7392fa6e-c836-4806-92ef-00143664f3e2|             |

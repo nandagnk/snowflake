@@ -1,0 +1,14 @@
+Zero copy clone
+===============
+
+Zero-Copy Clones 
+
+Zero-copy clones can serve as a quick backup by taking a snapshot of the database(metadata, permissions, and DDLs) at a given point in time, 
+but will not copy the real data. It captures a snapshot of data present in the source object when a clone is created and is made available to 
+the cloned object. Every time there is an update to the original database, the cloned database needs to be recreated, i.e., when you alter a 
+table in the original database, the cloned database still retains the DDL before the change.
+
+references:
+https://www.chaosgenius.io/blog/snowflake-zero-copy-clone/
+https://docs.snowflake.com/en/user-guide/object-clone#access-control-privileges-for-cloned-objects
+https://docs.snowflake.com/en/sql-reference/sql/create-clone

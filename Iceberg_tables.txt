@@ -1,0 +1,531 @@
+What is Apache Iceberg?
+Apache Iceberg is a high-performance open table format designed to manage huge datasets at scale. This format determines how to manage, organize, and track all the data files stored in open file formats that make up a table. 
+
+Architecture Overview
+The architecture of Apache Iceberg consists of three different layers:
+Catalog 
+Metadata layer
+Data layer
+
+=======
+Catalog
+=======
+The catalog manages a collection of tables and tracks the table’s current metadata. Additionally, it supports atomic operations to 
+update current metadata pointers. Hive metastore, AWS Glue, Nessie, JDBC database, Snowflake, etc., can all be used as catalogs 
+for Iceberg tables.
+=============
+Metadata File
+=============
+The metadata file stores the metadata of a table at a given timestamp in JSON format. This includes details about table snapshots, 
+manifest lists, schema, partition spec, etc. Every time there is a change in table data or metadata, a new metadata file is created.
+
+=============
+Manifest List
+=============
+The manifest list is a group of manifest files that are linked to a snapshot. These are normally avro files that store details 
+about manifest files, including statistics.
+
+=============
+Manifest File
+=============
+This is also an Avro file, which contains a list of data files with column statistics and partition information for each data file.
+
+=============
+Data Files
+=============
+Data files are the actual files storing data in open file formats: ORC, parquet, and AVRO.
+
+============================
+Iceberg Tables in Snowflake
+============================
+Iceberg tables in Snowflake are a new type of table where the actual data is stored outside of Snowflake. The data is stored in a 
+public cloud object storage location (Amazon S3, Google Cloud Storage, or Azure Storage) in Apache Iceberg table format. Snowflake 
+can access the data using new objects called external volume and catalog integration. 
+
+Snowflake uses its native query semantics with Iceberg specifications and libraries to read data from and write data into the 
+cloud object storage. The below picture describes the difference between external tables, Snowflake native tables, and Iceberg tables. 
+
+===============
+External Volume
+===============
+An external volume is an account-level object that stores the identity and access details of external cloud storage where Iceberg 
+tables data is stored. A single external volume can be used to create multiple Iceberg tables.
+
+===================
+Catalog Integration
+===================
+Catalog integration is an account-level object that defines the source of metadata for Iceberg tables in Snowflake when Snowflake 
+is not used as the catalog.
+
+======================
+Iceberg table features 
+======================
+
+The Iceberg tables in Snowflake support features such as:
+	*	ACID transactions
+	*	Schema evolution
+	*	Time travel (Snapshot-based reads)
+	*	Hidden partitioning
+	*	Multiple query engine support
+
+Key Differences Between Snowflake Native Tables and Iceberg Tables
+==================================================================
+Table metadata is stored in Iceberg format in public cloud storage and optionally in Snowflake if Snowflake is used as a catalog. 
+
+Data is stored in parquet format in public cloud storage, not in Snowflake.
+
+Both Snowflake and external compute engines like Spark can read data from cloud storage and write back to the same location.
+
+================================
+Iceberg Table Types in Snowflake
+================================
+Depending on where the catalog is managed for Iceberg tables, Snowflake can have two types of Iceberg tables:
+
+Snowflake Managed Iceberg Tables – Snowflake manages the metadata and catalog for these tables. These tables can support all 
+Snowflake features with read and write access.
+
+Externally Managed Iceberg Tables – An external system such as AWS Glue manages the metadata and catalog. These tables can support 
+read-only access in Snowflake.
+
+=======================================
+When to Use Iceberg Tables in Snowflake
+=======================================
+The data needs to be stored in a public cloud using an open file format like Parquet.
+
+Multiple teams are using different computing engines (Snowflake, Spark, etc. to analyze the same data without storing data redundantly.
+
+Data is already stored in the public cloud in an Iceberg table format, and one does not want to migrate data to Snowflake native tables. 
+
+==========================================
+Limitations of Iceberg Tables in Snowflake
+==========================================
+Snowflake supports Iceberg tables with external volume in the same cloud and region as that of the Snowflake account. 
+Cross-cloud and cross-region Iceberg tables are not supported.
+
+Only supports parquet format to store data files.
+
+Can create only permanent Iceberg tables and cannot create transient or temporary Iceberg tables.
+
+Time travel in Spark is not supported for Snowflake-managed Iceberg tables.
+
+Cannot create clones and cannot replicate Snowflake Iceberg tables.
+
+Third-party clients cannot modify data in Snowflake Iceberg tables.
+
+=============================
+Use cases for Iceberg tables
+=============================
+There are 3 major use cases
+
+1. You have existing large datasets in a datalake in Iceberg format already and want to query via Snowflake in a similar performance 
+to internal tables w/o ingesting the data.
+
+2. You want Snowflake to manage the tables (insert, updates & etc.) and be able to query it with Snowflake but also have a need to 
+query the same tables directly by other query engines like Spark, Redshift, Google BQ * etc. w/o going through Snowflake being in 
+the middle.
+
+3. You are a huge customer of one of the cloud providers where you get massive discounts on storage due to storing large datasets (PBs)
+where the storage discount offsets the savings you get from additional snowflake compression on its internal tables. Basically, 
+your aws/ azure storage discount makes it cheaper than paying $23 per compressed TB per month that Snowflake charges while storing 
+less compressed version in parqet format via iceberg in your own storage buckets.
+
+Obviously when you start using iceberg, you will have to fully assume the full responsibility of securing all data files and any access 
+to them via IAM rules as data is stored in your storage and can be accessed directly w/o going through Snowflake.
+
+Internal tables are fully managed, encrypted, secured and audited by Snowflake where RBAC rules are the only way to access the data.
+
+With Iceberg, anyone who has access to the storage locations can access the data so it is up to you to secure and audit the 
+direct access to those files.
+===========
+Conclusion
+===========
+With the incorporation of Iceberg tables, Snowflake has become more flexible, enabling customers to leverage Snowflake’s 
+performance and features for data they prefer to store outside the platform. By using Iceberg tables, customers can reduce storage 
+costs and allow various teams within an enterprise to utilize different technologies for processing and analyzing data without the 
+need to copy it to their respective platforms. 
+
+====================================
+Example for creating Iceberg tables
+====================================
+CREATE WAREHOUSE iceberg_tutorial_wh
+  WAREHOUSE_TYPE = STANDARD
+  WAREHOUSE_SIZE = XSMALL;
+  
+USE WAREHOUSE iceberg_tutorial_wh;
+ 
+CREATE OR REPLACE DATABASE iceberg_tutorial_db;
+
+USE DATABASE iceberg_tutorial_db;
+
+---CREATE a NEW IAM policy IN AWS AND CREATE a NEW ROLE FOR snowflake iceberg TABLE access AND attach the policy TO the ROLE.
+
+/*
+
+---IAM policy template
+ {
+   "Version": "2012-10-17",
+   "Statement": [
+         {
+            "Effect": "Allow",
+            "Action": [
+               "s3:PutObject",
+               "s3:GetObject",
+               "s3:GetObjectVersion",
+               "s3:DeleteObject",
+               "s3:DeleteObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::<my_bucket>/*"
+         },
+         {
+            "Effect": "Allow",
+            "Action": [
+               "s3:ListBucket",
+               "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::<my_bucket>",
+            "Condition": {
+               "StringLike": {
+                     "s3:prefix": [
+                        "*"
+                     ]
+               }
+            }
+         }
+   ]
+}
+ */
+
+-- create IAM role follow the below steps
+/*Create an IAM role
+Create an AWS IAM role to grant privileges on the S3 bucket containing your data files.
+
+From the left-hand navigation pane in the Identity and Access Management (IAM) Dashboard, select Roles.
+
+Select Create role.
+
+For the trusted entity type, select AWS account.
+
+Under An AWS account, select This account. In a later step, you modify the trusted relationship and grant access to Snowflake.
+
+Select the Require external ID option. Enter an external ID of your choice. For example, iceberg_table_external_id.
+
+An external ID is used to grant access to your AWS resources (such as S3 buckets) to a third party like Snowflake.
+
+Create an IAM role with an external ID.
+Select Next.
+
+Select the policy that you created for the external volume in the previous step, which grants access to your S3 location, then select Next.
+
+Enter a Role name and description for the role, then select Create role.
+
+You have now created an IAM policy for an S3 location, created an IAM role, and attached the policy to the role.
+
+Select View role to the view the role summary page. Locate and record the ARN (Amazon Resource Name) value for the role.
+*/
+=======================================
+Create an external volume in Snowflake
+=======================================
+Create an external volume using the CREATE EXTERNAL VOLUME command. The following example creates an external volume named 
+iceberg_external_volume that defines a single Amazon S3 storage location with encryption.
+
+CREATE OR REPLACE  iceberg_external_volume
+   STORAGE_LOCATIONS =
+      (
+         (
+            NAME = 'my-s3-ext-volme'
+            STORAGE_PROVIDER = 'S3'
+            STORAGE_BASE_URL = 's3://b21-bucket-20240528/'
+            STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::211125572618:role/snowflake_iceburg_table_role'
+            STORAGE_AWS_EXTERNAL_ID = 'iceberg_table_external_id'
+         )
+      );
+	  
+Retrieve the AWS IAM user for your Snowflake account
+Retrieve the ARN for the AWS IAM user that was created automatically for your Snowflake account using the 
+DESCRIBE EXTERNAL VOLUME command. Specify the name of your external volume.
+
+The following example describes an external volume named iceberg_external_volume.
+
+DESC EXTERNAL VOLUME iceberg_external_volume;
+
+parent_property  |property          |property_type|property_value                                                                                                                                                                                                                                                 |property_default|
+-----------------+------------------+-------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------------+
+                 |ALLOW_WRITES      |Boolean      |true                                                                                                                                                                                                                                                           |true            |
+STORAGE_LOCATIONS|STORAGE_LOCATION_1|String       |{"NAME":"my-s3-ext-volme","STORAGE_PROVIDER":"S3","STORAGE_BASE_URL":"s3://b21-bucket-20240528/","STORAGE_ALLOWED_LOCATIONS":["s3://b21-bucket-20240528/*"],"STORAGE_AWS_ROLE_ARN":"arn:aws:iam::211125572618:role/snowflake_iceburg_table_role","STORAGE_AWS_I|                |
+STORAGE_LOCATIONS|ACTIVE            |String       |                                                                                                                                                                                                                                                               |                |
+
+
+Copy
+Record the value for the STORAGE_AWS_IAM_USER_ARN property, which is the AWS IAM user created for your Snowflake account; for example, 
+arn:aws:iam::123456789001:user/abc1-b-self1234.
+
+{"NAME":"my-s3-ext-volme",
+ "STORAGE_PROVIDER":"S3",
+ "STORAGE_BASE_URL":"s3://b21-bucket-20240528/",
+ "STORAGE_ALLOWED_LOCATIONS":["s3://b21-bucket-20240528/*"],
+ "STORAGE_AWS_ROLE_ARN":"arn:aws:iam::211125572618:role/snowflake_iceburg_table_role",
+ "STORAGE_AWS_IAM_USER_ARN":"arn:aws:iam::891377375664:user/frtl0000-s",
+ "STORAGE_AWS_EXTERNAL_ID":"iceberg_table_external_id",
+ "ENCRYPTION_TYPE":"NONE","ENCRYPTION_KMS_KEY_ID":""}
+
+Snowflake provisions a single IAM user for your entire Snowflake account. All S3 external volumes in your account use that IAM user.     
+DESCRIBE EXTERNAL VOLUME iceberg_external_volume;
+
+The example specifies the external ID (iceberg_table_external_id) associated with the IAM role that you created for the external volume. 
+Specifying an external ID lets you use the same IAM role (and external ID) across multiple external volumes.
+
+Grant the IAM user permissions to access bucket objects
+In this step, you configure permissions that allow the IAM user for your Snowflake account to access objects in your S3 bucket.
+
+Log in to the AWS Management Console.
+
+From the home dashboard, search for and select IAM.
+
+From the left-hand navigation pane, select Roles.
+
+Select the IAM role that you created for your external volume.
+
+Select the Trust relationships tab.
+
+Select Edit trust policy.
+
+Modify the policy document with the DESC EXTERNAL VOLUME output values that you recorded.
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::891377375664:user/frtl0000-s"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "iceberg_table_external_id"
+                }
+            }
+        }
+    ]
+}
+
+=======================
+create an iceberg table 
+=======================
+
+CREATE OR REPLACE ICEBERG TABLE customer_iceberg (
+    c_custkey INTEGER,
+    c_name STRING,
+    c_address STRING,
+    c_nationkey INTEGER,
+    c_phone STRING,
+    c_acctbal INTEGER,
+    c_mktsegment STRING,
+    c_comment STRING
+)
+    CATALOG = 'SNOWFLAKE'
+    EXTERNAL_VOLUME = 'iceberg_external_volume'
+    BASE_LOCATION = 'customer_iceberg';
+
+Table CUSTOMER_ICEBERG successfully created.
+
+Set the Iceberg catalog and external volume for the database
+Next, set the CATALOG and EXTERNAL_VOLUME parameters for the iceberg_tutorial_db that you created in this tutorial. 
+Setting the parameters tells Snowflake to use the specific catalog and external volume that you choose for all Iceberg tables 
+created after the change.
+
+ALTER DATABASE iceberg_tutorial_db SET CATALOG = 'SNOWFLAKE';
+Statement executed successfully.
+ALTER DATABASE iceberg_tutorial_db SET EXTERNAL_VOLUME = 'iceberg_external_volume';
+Statement executed successfully.
+
+To verify, check the parameters for the current database (iceberg_tutorial_db):
+
+SHOW PARAMETERS IN DATABASE ;
+
+key                                          |value                  |default  |level   |description                                                                                                         |type   |
+---------------------------------------------+-----------------------+---------+--------+--------------------------------------------------------------------------------------------------------------------+-------+
+CATALOG                                      |SNOWFLAKE              |         |DATABASE|Name of the catalog integration to use for iceberg tables                                                           |STRING |
+DATA_RETENTION_TIME_IN_DAYS                  |1                      |1        |        |number of days to retain the old version of deleted/updated data                                                    |NUMBER |
+DEFAULT_DDL_COLLATION                        |                       |         |        |Collation that is used for all the new columns created by the DDL statements (if not specified)                     |STRING |
+ENABLE_CONSOLE_OUTPUT                        |false                  |false    |        |Enable stdout/stderr fast path logging for anonyous stored procs. This is a public parameter (similar to LOG_LEVEL).|BOOLEAN|
+EXTERNAL_VOLUME                              |iceberg_external_volume|         |DATABASE|Name of an external volume that will be used for persisted Iceberg metadata and data files.                         |STRING |
+LOG_LEVEL                                    |OFF                    |OFF      |        |LOG_LEVEL to use when filtering events                                                                              |STRING |
+MAX_DATA_EXTENSION_TIME_IN_DAYS              |14                     |14       |        |Maximum number of days to extend data retention beyond the retention period to prevent a stream becoming stale.     |NUMBER |
+METRIC_LEVEL                                 |NONE                   |NONE     |        |METRIC_LEVEL value to control whether to emit metrics to Event Table                                                |STRING |
+QUOTED_IDENTIFIERS_IGNORE_CASE               |false                  |false    |        |If true, the case of quoted identifiers is ignored                                                                  |BOOLEAN|
+REPLACE_INVALID_CHARACTERS                   |false                  |false    |        |Replace invalid UTF-8 characters found in Iceberg table external data files with the Unicode replacement character  |BOOLEAN|
+STORAGE_SERIALIZATION_POLICY                 |OPTIMIZED              |OPTIMIZED|        |Storage serialization policy used for managed Iceberg table. This include encodings and compressions                |STRING |
+SUSPEND_TASK_AFTER_NUM_FAILURES              |10                     |10       |        |How many times a task must fail in a row before it is automatically suspended. 0 disables auto-suspending.          |NUMBER |
+TASK_AUTO_RETRY_ATTEMPTS                     |0                      |0        |        |Maximum Automatic Retries Allowed For A User Task                                                                   |NUMBER |
+TRACE_LEVEL                                  |OFF                    |OFF      |        |Trace level value to use when generating/filtering trace events                                                     |STRING |
+USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE     |Medium                 |Medium   |        |The initial size of warehouse to use for managed warehouses in the absence of history                               |STRING |
+USER_TASK_MINIMUM_TRIGGER_INTERVAL_IN_SECONDS|30                     |30       |        |Minimum amount of time between Triggered Task executions in seconds                                                 |NUMBER |
+USER_TASK_TIMEOUT_MS                         |3600000                |3600000  |        |User task execution timeout in milliseconds                                                                         |NUMBER |
+
+===================================
+Create an Iceberg table using CTAS
+===================================
+Finally, create a second Iceberg table called nation_iceberg using the CREATE ICEBERG TABLE … AS SELECT syntax. 
+We’ll base the new table on the snowflake_sample_data.tpch_sf1.nation table in the Snowflake sample database.
+
+Note:Since you just set the CATALOG and EXTERNAL_VOLUME parameters for the iceberg_tutorial_db database, 
+you can omit both parameters from the CREATE ICEBERG TABLE statement. The nation_iceberg table will inherit the values from the database.
+
+CREATE OR REPLACE ICEBERG TABLE nation_iceberg (
+  n_nationkey INTEGER,
+  n_name STRING
+)
+  BASE_LOCATION = 'nation_iceberg'
+  AS SELECT
+    N_NATIONKEY,
+    N_NAME
+  FROM snowflake_sample_data.tpch_sf1.nation;
+  
+Table NATION_ICEBERG successfully created.
+
+===============================
+Load data and query the tables
+===============================
+In this step, you start by loading data from the Snowflake sample database into the customer_iceberg table using INSERT INTO <table>:
+
+INSERT INTO customer_iceberg
+  SELECT * FROM snowflake_sample_data.tpch_sf1.customer;
+  
+Note:
+
+If you check your cloud storage location, you should now see a directory that contains your table data files at the following path: 
+STORAGE_BASE_URL/BASE_LOCATION/customer_iceberg/data/.
+
+Now that there’s data in the table, you can query the table. 
+The following query joins the customer_iceberg table with the nation_iceberg table (which already contains data).
+
+SELECT
+    c.c_name AS customer_name,
+    c.c_mktsegment AS market_segment,
+    n.n_name AS nation
+  FROM customer_iceberg c
+  INNER JOIN nation_iceberg n
+    ON c.c_nationkey = n.n_nationkey
+  LIMIT 15;
+  
+CUSTOMER_NAME     |MARKET_SEGMENT|NATION        |
+------------------+--------------+--------------+
+Customer#000000001|BUILDING      |MOROCCO       |
+Customer#000000002|AUTOMOBILE    |JORDAN        |
+Customer#000000003|AUTOMOBILE    |ARGENTINA     |
+Customer#000000004|MACHINERY     |EGYPT         |
+Customer#000000005|HOUSEHOLD     |CANADA        |
+Customer#000000006|AUTOMOBILE    |SAUDI ARABIA  |
+Customer#000000007|AUTOMOBILE    |CHINA         |
+Customer#000000008|BUILDING      |PERU          |
+Customer#000000009|FURNITURE     |INDIA         |
+Customer#000000010|HOUSEHOLD     |ETHIOPIA      |
+Customer#000000011|BUILDING      |UNITED KINGDOM|
+Customer#000000012|HOUSEHOLD     |JORDAN        |
+Customer#000000013|BUILDING      |CANADA        |
+Customer#000000014|FURNITURE     |ARGENTINA     |
+Customer#000000015|HOUSEHOLD     |UNITED KINGDOM|
+
+
+SELECT COUNT(1) FROM customer_iceberg;
+COUNT(1)|
+--------+
+  150000|
+  
+SELECT * FROM customer_iceberg LIMIT 10;
+  
+C_CUSTKEY|C_NAME            |C_ADDRESS                            |C_NATIONKEY|C_PHONE        |C_ACCTBAL|C_MKTSEGMENT|C_COMMENT                                                                                                        |
+---------+------------------+-------------------------------------+-----------+---------------+---------+------------+-----------------------------------------------------------------------------------------------------------------+
+        1|Customer#000000001|IVhzIApeRb ot,c,E                    |         15|25-989-741-2988|      712|BUILDING    |to the even, regular platelets. regular, ironic epitaphs nag e                                                   |
+        2|Customer#000000002|XSTf4,NCwDVaWNe6tEgvwfmRchLXak       |         13|23-768-687-3665|      122|AUTOMOBILE  |l accounts. blithely ironic theodolites integrate boldly: caref                                                  |
+        3|Customer#000000003|MG9kdTD2WBHm                         |          1|11-719-748-3364|     7498|AUTOMOBILE  | deposits eat slyly ironic, even instructions. express foxes detect slyly. blithely even accounts abov           |
+        4|Customer#000000004|XxVSJsLAGtn                          |          4|14-128-190-5944|     2867|MACHINERY   | requests. final, regular ideas sleep final accou                                                                |
+        5|Customer#000000005|KvpyuHCplrB84WgAiGV6sYpZq7Tj         |          3|13-750-942-6364|      794|HOUSEHOLD   |n accounts will have to unwind. foxes cajole accor                                                               |
+        6|Customer#000000006|sKZz0CsnMD7mp4Xd0YrBvx,LREYKUWAh yVn |         20|30-114-968-4951|     7639|AUTOMOBILE  |tions. even deposits boost according to the slyly bold packages. final accounts cajole requests. furious         |
+        7|Customer#000000007|TcGe5gaZNgVePxU5kRrvXBfkasDTea       |         18|28-190-982-9759|     9562|AUTOMOBILE  |ainst the ironic, express theodolites. express, even pinto beans among the exp                                   |
+        8|Customer#000000008|I0B10bB0AymmC, 0PrRYBCP1yGJ8xcBPmWhl5|         17|27-147-574-9335|     6820|BUILDING    |among the slyly regular theodolites kindle blithely courts. carefully even theodolites haggle slyly along the ide|
+        9|Customer#000000009|xKiAFTjUsCuxfeleNqefumTrjS           |          8|18-338-906-3675|     8324|FURNITURE   |r theodolites according to the requests wake thinly excuses: pending requests haggle furiousl                    |
+       10|Customer#000000010|6LrEaV6KR6PLVcgl2ArL Q3rqzLzcT1 v2   |          5|15-741-346-9870|     2754|HOUSEHOLD   |es regular deposits haggle. fur                                                                                  |
+  
+SELECT COUNT(1) FROM nation_iceberg;
+COUNT(1)|
+--------+
+      25|
+	  
+SELECT * FROM nation_iceberg;
+N_NATIONKEY|N_NAME        |
+-----------+--------------+
+          0|ALGERIA       |
+          1|ARGENTINA     |
+          2|BRAZIL        |
+          3|CANADA        |
+          4|EGYPT         |
+          5|ETHIOPIA      |
+          6|FRANCE        |
+          7|GERMANY       |
+          8|INDIA         |
+          9|INDONESIA     |
+         10|IRAN          |
+         11|IRAQ          |
+         12|JAPAN         |
+         13|JORDAN        |
+         14|KENYA         |
+         15|MOROCCO       |
+         16|MOZAMBIQUE    |
+         17|PERU          |
+         18|CHINA         |
+         19|ROMANIA       |
+         20|SAUDI ARABIA  |
+         21|VIETNAM       |
+         22|RUSSIA        |
+         23|UNITED KINGDOM|
+         24|UNITED STATES |
+		 
+
+UPDATE customer_iceberg
+SET c_name = 'Nanda Govindan'
+WHERE c_custkey=1;
+
+SELECT * FROM customer_iceberg WHERE c_custkey=1;
+
+C_CUSTKEY|C_NAME        |C_ADDRESS        |C_NATIONKEY|C_PHONE        |C_ACCTBAL|C_MKTSEGMENT|C_COMMENT                                                     |
+---------+--------------+-----------------+-----------+---------------+---------+------------+--------------------------------------------------------------+
+        1|Nanda Govindan|IVhzIApeRb ot,c,E|         15|25-989-741-2988|      712|BUILDING    |to the even, regular platelets. regular, ironic epitaphs nag e|
+		
+=======
+CleanUp
+=======
+DROP ICEBERG TABLE customer_iceberg;
+DROP ICEBERG TABLE nation_iceberg;
+DROP EXTERNAL VOLUME iceberg_external_volume;
+USE DATABASE <my_other_database>;
+DROP DATABASE iceberg_tutorial_db;
+USE WAREHOUSE <my_other_warehouse>;
+DROP WAREHOUSE iceberg_tutorial_wh;
+
+========
+Summary
+========
+
+Along the way, you completed the following tasks:
+
+Created an external volume for Iceberg tables. For more information about external volumes and Iceberg table storage, 
+see Configure storage for Iceberg tables.
+
+Created a Snowflake-managed Iceberg table using sample data from the Snowflake sample database. For related information, 
+see the following topics:
+	Iceberg catalog options.
+	For more information about loading data into tables, see Load Data into Snowflake.
+	
+Set the Iceberg catalog and external volume for a database. For more information about setting these parameters, see the following topics:
+Set a catalog at the account, database, or schema level
+Set an external volume at the account, database, or schema level
+
+Sources:
+https://docs.snowflake.com/en/user-guide/tables-iceberg
+https://www.phdata.io/blog/what-are-iceberg-tables-in-snowflake-and-when-to-use-them/
+https://docs.snowflake.com/en/user-guide/tutorials/create-your-first-iceberg-table#introduction
+https://www.snowflake.com/guides/what-are-apache-iceberg-tables/
+https://medium.com/snowflake/iceberg-tables-snowflake-9e60cbaadf50
+https://medium.com/snowflake/an-overview-of-snowflake-apache-iceberg-tables-d5e85864ac99
