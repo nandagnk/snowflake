@@ -1,0 +1,2102 @@
+Snowflake Store Procedures
+Reference : https://docs.snowflake.com/en/developer-guide/stored-procedure/stored-procedures-overview
+
+You can write stored procedures to extend the system with procedural code that executes SQL. In a stored procedure, you can use programmatic 
+constructs to perform branching and looping. Once you create a stored procedure, you can reuse it multiple times.
+
+============================
+What is a Stored Procedure?
+============================
+Stored procedures enable users to create modular code that can include complex business logic by combining multiple SQL statements with procedural logic.
+A stored procedure contains logic you write so you can call it from SQL. A stored procedure’s logic typically performs database operations by 
+executing SQL statements.
+
+With a stored procedure, you can also:
+
+Dynamically create and execute SQL statements.
+
+Execute code with the privileges of the role that owns the procedure, rather than with the privileges of the role that runs the procedure.
+
+This allows the stored procedure owner to delegate the power to perform specified operations to users who otherwise could not do so. However, 
+there are limitations on these owner’s rights stored procedures.
+
+You might want to use a stored procedure to automate a task that requires multiple SQL statements and is performed frequently. 
+
+For example, imagine that you want to clean up a database by deleting data older than a specified date. You can write multiple DELETE statements, 
+each of which deletes data from a specific table. You can put all of those statements in a single stored procedure and pass a parameter that specifies 
+the cut-off date. Then you can simply call the procedure to clean up the database. As your database changes, you can update the procedure to clean up 
+additional tables; if there are multiple users who use the cleanup command, they can call one procedure, rather than remember every table name and 
+clean up each table individually.
+
+
+Code in the following example creates a stored procedure called myproc with a Python handler called run.
+
+create or replace procedure myproc(from_table string, to_table string, count int)
+  returns string
+  language python
+  runtime_version = '3.8'
+  packages = ('snowflake-snowpark-python')
+  handler = 'run'
+as
+$$
+def run(session, from_table, to_table, count):
+  session.table(from_table).limit(count).write.save_as_table(to_table)
+  return "SUCCESS"
+$$;
+
+
+Code in the following example calls the stored procedure myproc.
+CALL myproc('table_a', 'table_b', 5);
+
+===================
+Supported Languages
+===================
+
+You write a procedure’s handler – its logic – in any of several programming languages. Each language allows you to manipulate data within the constraints of the language and its runtime environment. Regardless of the handler language, you create the procedure itself in the same way using SQL, specifying your handler and handler language.
+
+You can write a handler in any of the following languages:
+=================================================================================
+Language						Developer Guide
+=================================================================================
+Java (using the Snowpark API)	Writing Stored Procedures in Java
+JavaScript						Writing Stored Procedures in JavaScript
+Python (using the Snowpark API)	Writing stored procedures in Python
+Scala (using the Snowpark API)  Writing Stored Procedures in Scala
+Snowflake Scripting (SQL)		Writing stored procedures in Snowflake Scripting
+=================================================================================
+
+===============
+Language Choice
+===============
+
+You write a procedure’s handler – its logic – in any of several programming languages. Each language allows you to manipulate data within the constraints 
+of the language and its runtime environment.
+
+You might choose a particular language if:
+
+You already have code in that language.
+
+For example, if you already have a Java method that will work as a handler, and the method’s object is in a .jar file, you could copy the .jar to a stage, 
+specify the handler as the class and method, then specify the language as Java.
+
+The language has capabilities that others don’t have.
+
+The language has libraries that can help you do the processing that you need to do.
+
+When choosing a language, consider also the handler locations supported. Not all languages support referring to the handler on a stage (the handler code 
+must instead be in-line). For more information, see Keeping Handler Code In-line or on a Stage.
+==============================================
+Language					Handler Location
+==============================================
+Java						In-line or staged
+JavaScript					In-line
+Python						In-line or staged
+Scala						In-line or staged
+Snowflake Scripting			In-line
+
+For Naming Convention refer https://docs.snowflake.com/en/developer-guide/udf-stored-procedure-naming-conventions
+
+Procedure 1: MyProc_1
+
+CREATE or replace PROCEDURE MyProc_1(PARAMETER_1 FLOAT)
+returns varchar
+LANGUAGE JAVASCRIPT
+EXECUTE AS CALLER
+as
+$$
+//Just read and set variables
+    var rs = snowflake.execute( {sqlText: "SELECT 2 * " + PARAMETER_1} );
+    rs.next();
+    var MyString = rs.getColumnValue(1);
+    return MyString;
+$$
+;
+
+SET Variable_1 = 49;
+CALL MyProc_1($Variable_1);
+
+output 
+MYPROC_1
+98
+
+Procedure 2: MyProc_2
+
+CREATE or replace PROCEDURE MyProc_2()
+    RETURNS VARCHAR
+    LANGUAGE JAVASCRIPT
+    EXECUTE AS CALLER
+    AS
+    $$
+        var rs = snowflake.execute( {sqlText: "SET SESSION_VAR_ZYXW = 51"} );
+
+        var rs = snowflake.execute( {sqlText: "SELECT 2 * $SESSION_VAR_ZYXW"} );
+        rs.next();
+        var MyString = rs.getColumnValue(1);
+
+        rs = snowflake.execute( {sqlText: "UNSET SESSION_VAR_ZYXW"} );
+
+        return MyString;
+    $$
+    ;
+
+CALL MyProc_2();
+
+output 
+102
+
+Note: Here the variable SESSION_VAR_ZYXW was set inside the store procedure which is not accessible from outside. So, the following query will fail.
+
+SELECT $SESSION_VAR_ZYXW;
+output
+Error: Session variable '$SESSION_VAR_ZYXW' does not exist (line 38)
+
+
+Procedure 3: MyProc_3 using Java as the language
+
+CREATE OR REPLACE PROCEDURE myProc_3(fromTable STRING, toTable STRING, count INT)
+  RETURNS STRING
+  LANGUAGE JAVA
+  RUNTIME_VERSION = '11'
+  PACKAGES = ('com.snowflake:snowpark:latest')
+  HANDLER = 'MyClass.myMethod'
+  AS
+  $$
+    import com.snowflake.snowpark_java.*;
+
+    public class MyClass
+    {
+      public String myMethod(Session session, String fromTable, String toTable, int count)
+      {
+        session.table(fromTable).limit(count).write().saveAsTable(toTable);
+        return "Success";
+      }
+    }
+  $$;
+  
+select count(1)from emp_src;  ---this contains 15 rows
+
+select count(1) from emp_src_1; ---this contains 14 rows
+
+truncate table emp_src_1;
+  
+call myProc_3('emp_src','emp_src_1',5);
+Success
+
+select count(1) from emp_src_1; 
+COUNT(1)
+5
+
+Procedure 4: Example for procedure using Python
+This procedure alway try create the create the table given in argument 2 and insert data from the table given in argument 1. If the table given in 
+argument 2 is already exists in the DB then it will fail.
+CREATE OR REPLACE PROCEDURE my_proc_4(from_table STRING, to_table STRING, count INT)
+RETURNS STRING
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.8'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'run'
+AS
+$$
+def run(session, from_table, to_table, count):
+   session.table(from_table).limit(count).write.save_as_table(to_table)
+   return "SUCCESS"
+$$;
+
+call my_proc_4('emp_src','emp_src_2',5);
+
+MY_PROC_4
+SUCCESS
+
+Note: This procedure create the table passed in argument 2 and insert data from the table passed in arugment 1
+call my_proc_4('emp_src','emp_src_2',5);
+COUNT(1)
+5
+
+Procedure 5:
+This procedure will insert the data if the table already exists if not will create and insert.
+CREATE OR REPLACE PROCEDURE my_proc_5(from_table STRING, to_table STRING, count INT)
+RETURNS STRING
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.8'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'run'
+AS
+$$
+def run(session, from_table, to_table, count):
+   session.table(from_table).limit(count).write.mode("append").save_as_table(to_table)
+   return "SUCCESS"
+$$;
+
+call my_proc_5('emp_src','emp_src_2',5);
+
+select count(1) from emp_src_2;
+count(1)
+10
+
+===============
+Staged Handler
+===============
+Code in the following example creates a procedure called my_proc with an staged Java handler method MyClass.myMethod. Through the PACKAGES clause, 
+the code references the included Snowpark library for Java, whose Session is required when Java is the procedure handler language. With the IMPORTS clause, 
+the code references the staged JAR file containing the handler code.
+
+CREATE OR REPLACE PROCEDURE my_proc(fromTable STRING, toTable STRING, count INT)
+  RETURNS STRING
+  LANGUAGE JAVA
+  RUNTIME_VERSION = '11'
+  PACKAGES = ('com.snowflake:snowpark:latest')
+  IMPORTS = ('@mystage/myjar.jar')
+  HANDLER = 'MyClass.myMethod';
+  
+This will not work, as the myjar.jar is not present in the stage.
+use case if you have the class and method converted into jar and to use it from the jar file.
+
+========================
+Specifying the arguments
+========================
+
+If the stored procedure has arguments, you can specify those arguments by name or by position.
+
+For example, the following stored procedure accepts three arguments:
+
+CREATE OR REPLACE PROCEDURE MyProc_5(
+    first_arg VARCHAR,
+    second_arg VARCHAR,
+    third_arg VARCHAR)
+  RETURNS VARCHAR
+  LANGUAGE SQL
+  AS
+  $$
+  BEGIN
+    RETURN first_arg || second_arg || third_arg;
+  END;
+  $$;
+  
+Ways to call the store procedures with multiple arguments
+
+method1 passing arguments by name
+
+CALL MyProc_6(
+first_arg => 'one',
+second_arg => 'two',
+third_arg => 'three');
+
+output
+onetwothree
+
+in this method even we can change the order of the parameters, it won't impact anything
+CALL MyProc_6(
+  third_arg => 'three',
+  first_arg => 'one',
+  second_arg => 'two');
+output:
+onetwothree
+
+method 2 : passing arguments by position
+CALL sp_concatenate_strings(
+  'one',
+  'two',
+  'three');
+
+output
+onetwothree
+
+Note: Here we can't change the order or the argument, which will mislead the procedure.
+You must either specify all arguments by name or by position. You cannot specify some of the arguments by name and other arguments by position.
+When specifying an argument by name, you cannot use double quotes around the argument name.
+If two functions or two procedures have the same name but different argument types, you can use the argument names to specify which function or procedure 
+to execute, if the argument names are different.
+
+=============================
+Specifying optional arguments
+=============================
+
+If the stored procedure has optional arguments, you can omit the optional arguments in the call. Each optional argument has a default value that is used
+when the argument is omitted.
+
+For example, the following stored procedure has one required argument and two optional arguments. Each optional argument has a default value.
+
+CREATE OR REPLACE PROCEDURE MyProc_7(
+    name VARCHAR,
+    prefix VARCHAR DEFAULT 'Hello! ',
+    suffix VARCHAR DEFAULT ' Welcome!'
+  )
+  RETURNS VARCHAR
+  LANGUAGE SQL
+  AS
+  $$
+    BEGIN
+      RETURN prefix || name || suffix;
+    END;
+  $$
+  ;
+  
+CALL MyProc_7('Nanda Govindan');
+Hello! Nanda Govindan Welcome!
+CALL MyProc_7(prefix=>'Hi ',name=>'Nanda Govindan');
+Hi Nanda Govindan Welcome!
+CALL MyProc_7(name => 'Nanda', suffix => ' hearty welcome');
+Hello! Nanda hearty welcome
+
+=================================================================================
+Passing references for tables, views, functions, and queries to stored procedures
+=================================================================================
+
+In cases in which you call a stored procedure and pass an identifier for a table, view, or function to a stored procedure, you might need to:
+Allow the stored procedure to perform SQL actions on the object, even if the stored procedure uses owner’s rights.
+Allow the stored procedure to resolve the fully qualified name of the object, if the identifier is not qualified or is partially qualified.
+
+In these cases, you can create and pass in a reference to the table, view, or function. 
+A reference is a unique identifier for a table, view, or function. Within the stored procedure, when you execute SQL actions on a reference to an object, 
+the actions are performed using the active role or secondary roles of the user who created the reference. In addition, if the table, view, or function 
+is not fully qualified, the name of the object is resolved by using the current database and schema when the reference was created (i.e. the database and 
+schema of the user who created the reference).
+
+Similarly, if you need to pass in a query to a stored procedure and use that query in the FROM clause of a SELECT statement, you can create and pass 
+in a query reference. Within the stored procedure, the query is performed using the active role or secondary roles of the user who created the query reference. 
+As is the case with references to tables, views, and functions, if the object name in the query is not fully qualified, the name of the object is resolved by 
+using the database and schema that were in use when the query reference was created.
+
+This topic explains how to create and use references.
+
+Background: The problem with passing tables, views, and queries to stored procedures
+Suppose that an owner’s rights stored procedure is designed to insert rows into a table specified by an input argument. The following are examples written 
+in Snowflake Scripting and JavaScript:
+
+Snowflake Scripting
+use role sysadmin;
+user dt_demo_db.clean;
+CREATE OR REPLACE PROCEDURE insert_row(table_identifier VARCHAR)
+RETURNS TABLE()
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  LET stmt VARCHAR := 'INSERT INTO ' || table_identifier || ' VALUES (10)';
+  LET res RESULTSET := (EXECUTE IMMEDIATE stmt);
+  RETURN TABLE(res);
+END;
+$$;
+
+USE ROLE accountadmin;
+use b21_streaming.streaming_schema;
+CREATE OR REPLACE TABLE table_with_different_owner (x NUMBER) AS SELECT 42;
+grant select,insert on b21_streaming.streaming_schema.table_with_different_owner to sysadmin;
+
+use role sysadmin;
+use dt_demo_db.clean;
+CALL insert_row('table_with_different_owner');
+Error:
+002003 (42S02): Uncaught exception of type 'STATEMENT_ERROR' on line 4 at position 24 : SQL compilation error:
+Table 'TABLE_WITH_DIFFERENT_OWNER' does not exist or not authorized.
+
+=======================================
+Writing Stored Procedures in JavaScript
+=======================================
+reference: https://docs.snowflake.com/en/developer-guide/stored-procedure/stored-procedures-javascript
+
+Understanding the JavaScript API
+The JavaScript API for stored procedures is similar to, but not identical to, the APIs in Snowflake connectors and drivers (Node.js, JDBC, Python, etc.).
+
+The API enables you to perform operations such as:
+	* Execute a SQL statement.
+	* Retrieve the results of a query (i.e. a result set).
+	* Retrieve metadata about the result set (number of columns, data types of the columns, etc.).
+
+These operations are carried out by calling methods on the following objects:
+
+	*	Snowflake, which has methods to create a Statement object and execute a SQL command.
+	*	Statement, which helps you execute prepared statements and access metadata for those prepared statements, and allows you to get back a ResultSet object.
+	*	ResultSet, which holds the results of a query (e.g. the rows of data retrieved for a SELECT statement).
+	*	SfDate, which is an extension of JavaScript Date (with additional methods) and serves as a return type for the Snowflake SQL data types TIMESTAMP_LTZ,
+		TIMESTAMP_NTZ, and TIMESTAMP_TZ.
+
+These objects are described in detail in the JavaScript Stored Procedures API.
+
+A typical stored procedure contains code similar to the following pseudo-code:
+
+var my_sql_command1 = "delete from history_table where event_year < 2016";
+var statement1 = snowflake.createStatement(my_sql_command1);
+statement1.execute();
+
+var my_sql_command2 = "delete from log_table where event_year < 2016";
+var statement2 = snowflake.createStatement(my_sql_command2);
+statement2.execute();
+
+This code uses an object named snowflake, which is a special object that exists without being declared. The object is provided inside the context of each 
+stored procedure and exposes the API to allow you to interact with the server.
+
+The other variables (e.g. statement1) are created with JavaScript var statements. For example:
+var statement1 = ...;
+
+As shown in the code sample above, the snowflake object allows you to create a Statement object by calling one of the methods in the API.
+
+Here’s an example that retrieves a ResultSet and iterates through it:
+
+create or replace procedure get_total_salary()
+  returns float not null
+  language javascript
+  as     
+  $$  
+    var my_sql_command = "select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src";
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	var total_sal = 0.0;
+    // Loop through the results, processing one row at a time... 
+    while (result_set1.next())  {
+       var sal = result_set1.getColumnValue(4);
+       var comm = result_set1.getColumnValue(5);
+	   total_sal = total_sal+sal+comm;
+       }
+  return total_sal;
+  $$
+  ;
+  
+call get_total_salary();
+output
+get_total_salary
+46175
+
+create or replace procedure get_dept_tot_sal(v_deptno double)
+  returns float not null
+  language javascript
+  as     
+  $$  
+    var my_sql_command = "select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno="+V_DEPTNO;
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	var total_sal = 0.0;
+    // Loop through the results, processing one row at a time... 
+    while (result_set1.next())  {
+       var sal = result_set1.getColumnValue(4);
+       var comm = result_set1.getColumnValue(5);
+	   total_sal = total_sal+sal+comm;
+       }
+  return total_sal;
+  $$
+  ;
+
+call get_total_salary(10);
+output
+2450
+
+create or replace procedure get_dept_tot_sal(v_deptno double)
+  returns string not null
+  language javascript
+  as     
+  $$  
+    var my_sql_command = "select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno="+V_DEPTNO;
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	var total_sal = 0.0;
+    // Loop through the results, processing one row at a time... 
+    while (result_set1.next())  {
+       var sal = result_set1.getColumnValue(4);
+       var comm = result_set1.getColumnValue(5);
+	   total_sal = total_sal+sal+comm;
+       }
+  return "Procedure successfully executed, Total Salary from Department "+V_DEPTNO+" is "+total_sal+".";
+  $$
+  ;
+call get_total_salary(10);
+output 
+Procedure successfully executed, Total Salary from Depart 10 is 2450.
+
+====================================
+SQL and JavaScript Data Type Mapping
+====================================
+When calling, using, and getting values back from stored procedures, you often need to convert from a Snowflake SQL data type to a JavaScript data type or 
+vice versa.
+
+SQL to JavaScript conversion can occur when:
+
+	Calling a stored procedure with an argument. The argument is a SQL data type; when it is stored inside a JavaScript variable inside the stored procedure, 
+	it must be converted.
+
+	When retrieving a value from a ResultSet object into a JavaScript variable. The ResultSet holds the value as a SQL data type, and the JavaScript variable 
+	must store the value as one of the JavaScript data types.
+
+JavaScript to SQL conversion can occur when:
+
+	Returning a value from the stored procedure. The return statement typically contains a JavaScript variable that must be converted to a SQL data type.
+
+	When dynamically constructing a SQL statement that uses a value in a JavaScript variable.
+
+	When binding a JavaScript variable’s value to a prepared statement.
+	
+=============
+General Tips
+=============
+
+1. Line Continuation
+
+SQL statements can be quite long, and it is not always practical to fit them on a single line. JavaScript treats a newline as the end of a statement. 
+If you want to split a long SQL statement across multiple lines, you can use the usual JavaScript techniques for handling long strings, including:
+
+Put a backslash (line continuation character) immediately prior to the end of the line. For example:
+
+var sql_command = "SELECT * \
+                       FROM table1;";
+					   
+Use backticks (single backquotes) rather than double quotes around the string. For example:
+
+var sql_command = `SELECT *
+                       FROM table1;`;
+
+Accumulate the string. For example:
+
+var sql_command = "SELECT col1, col2"
+sql_command += "     FROM table1"
+sql_command += "     WHERE col1 >= 100"
+sql_command += "     ORDER BY col2;"
+
+
+2. JavaScript Number Range
+The range for numbers with precision intact is from
+-(2^53 -1) to (2^53 -1)
+
+The range of valid values in Snowflake NUMBER(p, s) and DOUBLE data types is larger. Retrieving a value from Snowflake and storing it in a JavaScript 
+numeric variable can result in loss of precision. For example:
+
+CREATE OR REPLACE FUNCTION num_test(a double)
+  RETURNS string
+  LANGUAGE JAVASCRIPT
+AS
+$$
+  return A;
+$$
+;
+select hash(1) AS a, 
+       num_test(hash(1)) AS b, 
+       a - b;
++----------------------+----------------------+------------+
+|                    A | B                    |      A - B |
+|----------------------+----------------------+------------|
+| -4730168494964875235 | -4730168494964875000 | -235.00000 |
++----------------------+----------------------+------------+
+The first two columns should match, and the third should contain 0.0.
+
+The problem applies to JavaScript user-defined functions (UDFs) and stored procedures.
+
+If you experience the problem in stored procedures when using getColumnValue(), you might be able to avoid the problem by retrieving a value as a string, 
+e.g. with:
+
+getColumnValueAsString()
+You can then return the string from the stored procedure, and cast the string to a numeric data type in SQL.
+
+3. JavaScript Error Handling
+Because a stored procedure is written in JavaScript, it can use JavaScript’s try/catch syntax.
+
+The stored procedure can throw a pre-defined exception or a custom exception. A simple example of throwing a custom exception is here.
+
+You can execute your SQL statements inside a try block. If an error occurs, then your catch block can roll back all of the statements (if you put the 
+statements in a transaction). 
+
+4. Case-sensitivity in JavaScript Arguments
+Argument names are case-insensitive in the SQL portion of the stored procedure code, but are case-sensitive in the JavaScript portion.
+
+For stored procedures (and UDFs) that use JavaScript, identifiers (such as argument names) in the SQL portion of the statement are converted to 
+uppercase automatically (unless you delimit the identifier with double quotes), while argument names in the JavaScript portion will be left in their 
+original case. This can cause your stored procedure to fail without returning an explicit error message because the arguments aren’t seen.
+
+CREATE PROCEDURE f(argument1 VARCHAR)
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+AS
+$$
+var local_variable1 = argument1;  // Incorrect
+var local_variable2 = ARGUMENT1;  // Correct
+$$;
+
+Using uppercase identifiers (especially argument names) consistently across your SQL statements and JavaScript code tends to reduce silent errors.
+
+5. JavaScript Delimiters
+The JavaScript portion of the stored procedure code must be enclosed within either single quotes ' or double dollar signs $$.
+
+Using $$ makes it easier to handle JavaScript code that contains single quotes without “escaping” those quotes.
+
+6. Binding Variables
+Binding a variable to a SQL statement allows you to use the value of the variable in the statement.
+
+You can bind NULL values as well as non-NULL values.
+
+The data type of the variable should be appropriate for the use of the value in the SQL statement. Currently, only JavaScript variables of type number, 
+string, and SfDate can be bound. (For details about the mapping between SQL data types and JavaScript data types, see SQL and JavaScript Data Type Mapping.)
+
+Here is a short example of binding:
+
+var stmt = snowflake.createStatement(
+   {
+   sqlText: "INSERT INTO table2 (col1, col2) VALUES (?, ?);",
+   binds:["LiteralValue1", variable2]
+   }
+);
+Here is a more complete example. This example binds TIMESTAMP information. Because direct binding of SQL TIMESTAMP data is not supported, this example passes the timestamp as a VARCHAR, then binds that to the statement. Note that the SQL statement itself converts the VARCHAR to a TIMESTAMP by calling the TO_TIMESTAMP() function:
+
+This simple function returns TRUE if the specified timestamp is prior to now, and FALSE otherwise.
+
+CREATE OR REPLACE PROCEDURE right_bind(TIMESTAMP_VALUE VARCHAR)
+RETURNS BOOLEAN
+LANGUAGE JAVASCRIPT
+AS
+$$
+var cmd = "SELECT CURRENT_DATE() > TO_TIMESTAMP(:1, 'YYYY-MM-DD HH24:MI:SS')";
+var stmt = snowflake.createStatement(
+          {
+          sqlText: cmd,
+          binds: [TIMESTAMP_VALUE]
+          }
+          );
+var result1 = stmt.execute();
+result1.next();
+return result1.getColumnValue(1);
+$$
+;
+CALL right_bind('2019-09-16 01:02:03');
++------------+
+| RIGHT_BIND |
+|------------|
+| True       |
++------------+
+
+7. Code Requirements
+The JavaScript code must define a single literal JavaScript object for the stored procedure to be valid.
+
+If the JavaScript code does not meet this requirement, the stored procedure will be created; however, it will fail when called.
+
+8. Code Size
+Snowflake limits the maximum size of the JavaScript source code in the body of a JavaScript stored procedure. Snowflake recommends limiting the size to 100 KB. 
+(The code is stored in a compressed form, and the exact limit depends on the compressibility of the code.)
+
+9. Runtime Errors
+Most errors in stored procedures show up at runtime because the JavaScript code is interpreted at the time that the stored procedure runs rather than when 
+the stored procedure is created.
+
+Support for Dynamic SQL
+Stored procedures can be used to dynamically construct SQL statements. For example, you could build a SQL command string that contains a mix of pre-configured 
+SQL and user inputs (e.g. a user’s account number).
+
+10. Synchronous API
+The API for Snowflake stored procedures is synchronous. Within a stored procedure, you can run only one thread at a time.
+
+Note that this is different from the rule for the JavaScript executing with the Node.js connector, which allows you to run asynchronous threads.
+
+
+Basic Examples
+The following example shows the basic syntax of creating and calling a stored procedure. It doesn’t execute any SQL or procedural code. However, it provides a starting point for more realistic examples later:
+
+create or replace procedure sp_pi()
+    returns float not null
+    language javascript
+    as
+    $$
+    return 3.1415926;
+    $$
+    ;
+	
+Note that the $$ delimiter marks the beginning and end of the JavaScript code.
+
+Now call the procedure you just created:
+
+CALL sp_pi();
++-----------+
+|     SP_PI |
+|-----------|
+| 3.1415926 |
++-----------+
+
+The following example illustrates how to execute a SQL statement inside a stored procedure:
+
+Create a table:
+
+CREATE TABLE stproc_test_table1 (num_col1 numeric(14,7));
+Create a stored procedure. This inserts a row into an existing table named stproc_test_table1 and returns the value “Succeeded.”. The returned value is not particularly useful from a SQL perspective, but it allows you to return status information (e.g. “Succeeded.” or “Failed.”) to the user.
+
+create or replace procedure stproc1(FLOAT_PARAM1 FLOAT)
+    returns string
+    language javascript
+    strict
+    execute as owner
+    as
+    $$
+    var sql_command = 
+     "INSERT INTO stproc_test_table1 (num_col1) VALUES (" + FLOAT_PARAM1 + ")";
+    try {
+        snowflake.execute (
+            {sqlText: sql_command}
+            );
+        return "Succeeded.";   // Return a success/error indicator.
+        }
+    catch (err)  {
+        return "Failed: " + err;   // Return a success/error indicator.
+        }
+    $$
+    ;
+Call the stored procedure:
+
+call stproc1(5.14::FLOAT);
++------------+
+| STPROC1    |
+|------------|
+| Succeeded. |
++------------+
+Confirm that the stored procedure inserted the row:
+
+select * from stproc_test_table1;
++-----------+
+|  NUM_COL1 |
+|-----------|
+| 5.1400000 |
++-----------+
+
+The following example retrieves a result:
+
+Create a procedure to count the number of rows in a table (equivalent to select count(*) from table):
+
+create or replace procedure get_row_count(table_name VARCHAR)
+  returns float not null
+  language javascript
+  as
+  $$
+  var row_count = 0;
+  // Dynamically compose the SQL statement to execute.
+  var sql_command = "select count(*) from " + TABLE_NAME;
+  // Run the statement.
+  var stmt = snowflake.createStatement(
+         {
+         sqlText: sql_command
+         }
+      );
+  var res = stmt.execute();
+  // Get back the row count. Specifically, ...
+  // ... get the first (and in this case only) row from the result set ...
+  res.next();
+  // ... and then get the returned value, which in this case is the number of
+  // rows in the table.
+  row_count = res.getColumnValue(1);
+  return row_count;
+  $$
+  ;
+Ask the stored procedure how many rows are in the table:
+
+call get_row_count('stproc_test_table1');
++---------------+
+| GET_ROW_COUNT |
+|---------------|
+|             1 |
++---------------+
+Check independently that you got the right number:
+
+select count(*) from stproc_test_table1;
++----------+
+| COUNT(*) |
+|----------|
+|        1 |
++----------+
+===================================
+Recursive Stored Procedure Example
+===================================
+The following example shows a basic, but not particularly realistic, recursive stored procedure:
+
+create or replace table stproc_test_table2 (col1 FLOAT);
+create or replace procedure recursive_stproc(counter FLOAT)
+    returns varchar not null
+    language javascript
+    as
+    -- "$$" is the delimiter that shows the beginning and end of the stored proc.
+    $$
+    var counter1 = COUNTER;
+    var returned_value = "";
+    var accumulator = "";
+    var stmt = snowflake.createStatement(
+        {
+        sqlText: "INSERT INTO stproc_test_table2 (col1) VALUES (?);",
+        binds:[counter1]
+        }
+        );
+    var res = stmt.execute();
+    if (COUNTER > 0)
+        {
+        stmt = snowflake.createStatement(
+            {
+            sqlText: "call recursive_stproc (?);",
+            binds:[counter1 - 1]
+            }
+            );
+        res = stmt.execute();
+        res.next();
+        returned_value = res.getColumnValue(1);
+        }
+    accumulator = accumulator + counter1 + ":" + returned_value;
+    return accumulator;
+    $$
+    ;
+call recursive_stproc(4.0::FLOAT);
++------------------+
+| RECURSIVE_STPROC |
+|------------------|
+| 4:3:2:1:0:       |
++------------------+
+SELECT * 
+    FROM stproc_test_table2
+    ORDER BY col1;
++------+
+| COL1 |
+|------|
+|    0 |
+|    1 |
+|    2 |
+|    3 |
+|    4 |
++------+
+
+=====================================
+Dynamically Creating a SQL Statement
+=====================================
+The following example shows how to dynamically create a SQL statement:
+
+Note
+
+As stated in SQL Injection (in this topic), be careful to guard against attacks when using dynamic SQL.
+
+Create the stored procedure. This procedure allows you to pass the name of a table and get the number of rows in that table (equivalent to select count(*) from table_name):
+
+create or replace procedure get_row_count(table_name VARCHAR)
+    returns float 
+    not null
+    language javascript
+    as
+    $$
+    var row_count = 0;
+    // Dynamically compose the SQL statement to execute.
+    // Note that we uppercased the input parameter name.
+    var sql_command = "select count(*) from " + TABLE_NAME;
+    // Run the statement.
+    var stmt = snowflake.createStatement(
+           {
+           sqlText: sql_command
+           }
+        );
+    var res = stmt.execute();
+    // Get back the row count. Specifically, ...
+    // ... first, get the first (and in this case only) row from the
+    //  result set ...
+    res.next();
+    // ... then extract the returned value (which in this case is the
+    // number of rows in the table).
+    row_count = res.getColumnValue(1);
+    return row_count;
+    $$
+    ;
+Call the stored procedure:
+
+call get_row_count('stproc_test_table2');
++---------------+
+| GET_ROW_COUNT |
+|---------------|
+|             5 |
++---------------+
+Show the results from select count(*) for the same table:
+
+SELECT COUNT(*) FROM stproc_test_table2;
++----------+
+| COUNT(*) |
+|----------|
+|        5 |
++----------+
+
+==============================
+Retrieving Result Set Metadata
+==============================
+This example demonstrates retrieving a small amount of metadata from a result set:
+
+create or replace table stproc_test_table3 (
+    n10 numeric(10,0),     /* precision = 10, scale = 0 */
+    n12 numeric(12,4),     /* precision = 12, scale = 4 */
+    v1 varchar(19)         /* scale = 0 */
+    );
+create or replace procedure get_column_scale(column_index float)
+    returns float not null
+    language javascript
+    as
+    $$
+    var stmt = snowflake.createStatement(
+        {sqlText: "select n10, n12, v1 from stproc_test_table3;"}
+        );
+    stmt.execute();  // ignore the result set; we just want the scale.
+    return stmt.getColumnScale(COLUMN_INDEX); // Get by column index (1-based)
+    $$
+    ;
+call get_column_scale(1);
++------------------+
+| GET_COLUMN_SCALE |
+|------------------|
+|                0 |
++------------------+
+call get_column_scale(2);
++------------------+
+| GET_COLUMN_SCALE |
+|------------------|
+|                4 |
++------------------+
+call get_column_scale(3);
++------------------+
+| GET_COLUMN_SCALE |
+|------------------|
+|                0 |
++------------------+
+
+=================================
+Catching an Error using Try/Catch
+=================================
+
+This example demonstrates using a JavaScript try/catch block to catch an error inside a stored procedure:
+
+Create the stored procedure:
+
+    create procedure broken()
+      returns varchar not null
+      language javascript
+      as
+      $$
+      var result = "";
+      try {
+          snowflake.execute( {sqlText: "Invalid Command!;"} );
+          result = "Succeeded";
+          }
+      catch (err)  {
+          result =  "Failed: Code: " + err.code + "\n  State: " + err.state;
+          result += "\n  Message: " + err.message;
+          result += "\nStack Trace:\n" + err.stackTraceTxt; 
+          }
+      return result;
+      $$
+      ;
+Call the stored procedure. This should return an error showing the error number and other information:
+
+    -- This is expected to fail.
+    call broken();
++---------------------------------------------------------+
+| BROKEN                                                  |
+|---------------------------------------------------------|
+| Failed: Code: 1003                                      |
+|   State: 42000                                          |
+|   Message: SQL compilation error:                       |
+| syntax error line 1 at position 0 unexpected 'Invalid'. |
+| Stack Trace:                                            |
+| Snowflake.execute, line 4 position 20                   |
++---------------------------------------------------------+
+The following example demonstrates throwing a custom exception:
+
+Create the stored procedure:
+
+CREATE OR REPLACE PROCEDURE validate_age (age float)
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+EXECUTE AS CALLER
+AS $$
+    try {
+        if (AGE < 0) {
+            throw "Age cannot be negative!";
+        } else {
+            return "Age validated.";
+        }
+    } catch (err) {
+        return "Error: " + err;
+    }
+$$;
+Call the stored procedure with valid and invalid values:
+
+CALL validate_age(50);
++----------------+
+| VALIDATE_AGE   |
+|----------------|
+| Age validated. |
++----------------+
+CALL validate_age(-2);
++--------------------------------+
+| VALIDATE_AGE                   |
+|--------------------------------|
+| Error: Age cannot be negative! |
++--------------------------------+
+
+=======================================
+Using Transactions in Stored Procedures
+=======================================
+The following example wraps multiple related statements in a transaction, and uses try/catch to commit or roll back. The parameter force_failure 
+allows the caller to choose between successful execution and deliberate error.
+
+-- Create the procedure
+create or replace procedure cleanup(force_failure varchar)
+  returns varchar not null
+  language javascript
+  as
+  $$
+  var result = "";
+  snowflake.execute( {sqlText: "BEGIN WORK;"} );
+  try {
+      snowflake.execute( {sqlText: "DELETE FROM child;"} );
+      snowflake.execute( {sqlText: "DELETE FROM parent;"} );
+      if (FORCE_FAILURE === "fail")  {
+          // To see what happens if there is a failure/rollback,
+          snowflake.execute( {sqlText: "DELETE FROM no_such_table;"} );
+          }
+      snowflake.execute( {sqlText: "COMMIT WORK;"} );
+      result = "Succeeded";
+      }
+  catch (err)  {
+      snowflake.execute( {sqlText: "ROLLBACK WORK;"} );
+      return "Failed: " + err;   // Return a success/error indicator.
+      }
+  return result;
+  $$
+  ;
+
+call cleanup('fail');
+
+call cleanup('do not fail');
+
+================================================================
+Using RESULT_SCAN to Retrieve the Result from a Stored Procedure
+================================================================
+
+This example shows how to use the RESULT_SCAN function to retrieve the result from a CALL statement:
+
+Create and load the table:
+
+CREATE TABLE western_provinces(ID INT, province VARCHAR);
+INSERT INTO western_provinces(ID, province) VALUES
+    (1, 'Alberta'),
+    (2, 'British Columbia'),
+    (3, 'Manitoba')
+    ;
+Create the stored procedure. This procedure returns a well-formatted string that looks like a result set of three rows, but is actually a single string:
+
+CREATE OR REPLACE PROCEDURE read_western_provinces()
+  RETURNS VARCHAR NOT NULL
+  LANGUAGE JAVASCRIPT
+  AS
+  $$
+  var return_value = "";
+  try {
+      var command = "SELECT * FROM western_provinces ORDER BY province;"
+      var stmt = snowflake.createStatement( {sqlText: command } );
+      var rs = stmt.execute();
+      if (rs.next())  {
+          return_value += rs.getColumnValue(1);
+          return_value += ", " + rs.getColumnValue(2);
+          }
+      while (rs.next())  {
+          return_value += "\n";
+          return_value += rs.getColumnValue(1);
+          return_value += ", " + rs.getColumnValue(2);
+          }
+      }
+  catch (err)  {
+      result =  "Failed: Code: " + err.code + "\n  State: " + err.state;
+      result += "\n  Message: " + err.message;
+      result += "\nStack Trace:\n" + err.stackTraceTxt;
+      }
+  return return_value;
+  $$
+  ;
+Call the stored procedure, then retrieve the results by using RESULT_SCAN:
+
+CALL read_western_provinces();
++------------------------+
+| READ_WESTERN_PROVINCES |
+|------------------------|
+| 1, Alberta             |
+| 2, British Columbia    |
+| 3, Manitoba            |
++------------------------+
+SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
++------------------------+
+| READ_WESTERN_PROVINCES |
+|------------------------|
+| 1, Alberta             |
+| 2, British Columbia    |
+| 3, Manitoba            |
++------------------------+
+You can perform more complex operations on the value returned by the RESULT_SCAN function. In this case, because the returned value is a single string, you might want to extract the individual “rows” that appear to be contained within that string, and store those rows in another table.
+
+The following example, which is a continuation of the previous example, illustrates one way to do this:
+
+Create a table for long-term storage. This table contains the province name and the province ID after you’ve extracted them from the string returned by the CALL command:
+
+CREATE TABLE all_provinces(ID INT, province VARCHAR);
+Call the stored procedure, then retrieve the result by using RESULT_SCAN, and then extract the three rows from the string and put those rows into the table:
+
+INSERT INTO all_provinces
+  WITH 
+    one_string (string_col) AS
+      (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+    three_strings (one_row) AS
+      (SELECT VALUE FROM one_string, LATERAL SPLIT_TO_TABLE(one_string.string_col, '\n'))
+  SELECT
+         STRTOK(one_row, ',', 1) AS ID,
+         STRTOK(one_row, ',', 2) AS province
+    FROM three_strings
+    WHERE NOT (ID IS NULL AND province IS NULL);
++-------------------------+
+| number of rows inserted |
+|-------------------------|
+|                       3 |
++-------------------------+
+Verify that this worked by showing the rows in the table:
+
+SELECT ID, province 
+    FROM all_provinces;
++----+-------------------+
+| ID | PROVINCE          |
+|----+-------------------|
+|  1 |  Alberta          |
+|  2 |  British Columbia |
+|  3 |  Manitoba         |
++----+-------------------+
+Here’s approximately the same code, but in smaller steps:
+
+Create a table named one_string. This table temporarily stores the result of the CALL command. The result of the CALL is a single string, so this table stores only a single VARCHAR value.
+
+CREATE TRANSIENT TABLE one_string(string_col VARCHAR);
+Call the stored procedure, then retrieve the result (a string) by using RESULT_SCAN, and then store that into the intermediate table named one_string:
+
+CALL read_western_provinces();
++------------------------+
+| READ_WESTERN_PROVINCES |
+|------------------------|
+| 1, Alberta             |
+| 2, British Columbia    |
+| 3, Manitoba            |
++------------------------+
+INSERT INTO one_string
+    SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
++-------------------------+
+| number of rows inserted |
+|-------------------------|
+|                       1 |
++-------------------------+
+This shows the new row in the one_string table. Remember that although this is formatted to look like three rows, it is actually a single string:
+
+SELECT string_col FROM one_string;
++---------------------+
+| STRING_COL          |
+|---------------------|
+| 1, Alberta          |
+| 2, British Columbia |
+| 3, Manitoba         |
++---------------------+
+-- Show that it's one string, not three rows:
+SELECT '>>>' || string_col || '<<<' AS string_col 
+    FROM one_string;
++---------------------+
+| STRING_COL          |
+|---------------------|
+| >>>1, Alberta       |
+| 2, British Columbia |
+| 3, Manitoba<<<      |
++---------------------+
+SELECT COUNT(*) FROM one_string;
++----------+
+| COUNT(*) |
+|----------|
+|        1 |
++----------+
+The following commands show how to extract multiple rows from the string:
+
+SELECT * FROM one_string, LATERAL SPLIT_TO_TABLE(one_string.string_col, '\n');
++---------------------+-----+-------+---------------------+
+| STRING_COL          | SEQ | INDEX | VALUE               |
+|---------------------+-----+-------+---------------------|
+| 1, Alberta          |   1 |     1 | 1, Alberta          |
+| 2, British Columbia |     |       |                     |
+| 3, Manitoba         |     |       |                     |
+| 1, Alberta          |   1 |     2 | 2, British Columbia |
+| 2, British Columbia |     |       |                     |
+| 3, Manitoba         |     |       |                     |
+| 1, Alberta          |   1 |     3 | 3, Manitoba         |
+| 2, British Columbia |     |       |                     |
+| 3, Manitoba         |     |       |                     |
++---------------------+-----+-------+---------------------+
+SELECT VALUE FROM one_string, LATERAL SPLIT_TO_TABLE(one_string.string_col, '\n');
++---------------------+
+| VALUE               |
+|---------------------|
+| 1, Alberta          |
+| 2, British Columbia |
+| 3, Manitoba         |
++---------------------+
+Next, create a table named three_strings. This table will hold the result after you’ve split it into individual lines/strings:
+
+CREATE TRANSIENT TABLE three_strings(string_col VARCHAR);
+Now convert that one string in the one_string table into three separate strings, and show that it is now actually three strings:
+
+INSERT INTO three_strings
+  SELECT VALUE FROM one_string, LATERAL SPLIT_TO_TABLE(one_string.string_col, '\n');
++-------------------------+
+| number of rows inserted |
+|-------------------------|
+|                       3 |
++-------------------------+
+SELECT string_col 
+    FROM three_strings;
++---------------------+
+| STRING_COL          |
+|---------------------|
+| 1, Alberta          |
+| 2, British Columbia |
+| 3, Manitoba         |
++---------------------+
+SELECT COUNT(*) 
+    FROM three_strings;
++----------+
+| COUNT(*) |
+|----------|
+|        3 |
++----------+
+Now convert the three strings into three rows in our long-term table named all_provinces:
+
+INSERT INTO all_provinces
+  SELECT 
+         STRTOK(string_col, ',', 1) AS ID, 
+         STRTOK(string_col, ',', 2) AS province 
+    FROM three_strings
+    WHERE NOT (ID IS NULL AND province IS NULL);
++-------------------------+
+| number of rows inserted |
+|-------------------------|
+|                       3 |
++-------------------------+
+Show the three rows in the long-term table:
+
+SELECT ID, province 
+    FROM all_provinces;
++----+-------------------+
+| ID | PROVINCE          |
+|----+-------------------|
+|  1 |  Alberta          |
+|  2 |  British Columbia |
+|  3 |  Manitoba         |
++----+-------------------+
+SELECT COUNT(*) 
+    FROM all_provinces;
++----------+
+| COUNT(*) |
+|----------|
+|        3 |
++----------+
+
+====================================
+Returning an Array of Error Messages
+====================================
+
+Your stored procedure might execute more than one SQL statement and you might want to return a status/error message for each SQL statement. However, a stored 
+procedure returns a single row; it is not designed to return multiple rows.
+
+If all of your messages fit into a single value of type ARRAY, you can get all the messages from a stored procedure with some additional effort.
+
+The following example shows one way to do this (the error messages shown are not real, but you can extend this code to work with your actual SQL statements):
+
+CREATE OR REPLACE PROCEDURE sp_return_array()
+      RETURNS VARIANT NOT NULL
+      LANGUAGE JAVASCRIPT
+      AS
+      $$
+      // This array will contain one error message (or an empty string) 
+      // for each SQL command that we executed.
+      var array_of_rows = [];
+
+      // Artificially fake the error messages.
+      array_of_rows.push("ERROR: The foo was barred.")
+      array_of_rows.push("WARNING: A Carrington Event is predicted.")
+
+      return array_of_rows;
+      $$
+      ;
+CALL sp_return_array();
++-----------------------------------------------+
+| SP_RETURN_ARRAY                               |
+|-----------------------------------------------|
+| [                                             |
+|   "ERROR: The foo was barred.",               |
+|   "WARNING: A Carrington Event is predicted." |
+| ]                                             |
++-----------------------------------------------+
+-- Now get the individual error messages, in order.
+SELECT INDEX, VALUE 
+    FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) AS res, LATERAL FLATTEN(INPUT => res.$1)
+    ORDER BY index
+    ;
++-------+---------------------------------------------+
+| INDEX | VALUE                                       |
+|-------+---------------------------------------------|
+|     0 | "ERROR: The foo was barred."                |
+|     1 | "WARNING: A Carrington Event is predicted." |
++-------+---------------------------------------------+
+Remember, this is not a general purpose solution. There is a limit on the maximum size of ARRAY data types, and your entire result set must fit into a single
+ARRAY.
+
+Returning a Result Set
+This section extends the previous example described in Returning an Array of Error Messages. This example is more general, and allows you to return a result 
+set from a query.
+
+A stored procedure returns a single row that contains a single column; it is not designed to return a result set. However, if your result set is small enough 
+to fit into a single value of type VARIANT or ARRAY, you can return a result set from a stored procedure with some additional code:
+
+CREATE TABLE return_to_me(col_i INT, col_v VARCHAR);
+INSERT INTO return_to_me (col_i, col_v) VALUES
+    (1, 'Ariel'),
+    (2, 'October'),
+    (3, NULL),
+    (NULL, 'Project');
+-- Create the stored procedure that retrieves a result set and returns it.
+CREATE OR REPLACE PROCEDURE sp_return_table(TABLE_NAME VARCHAR, COL_NAMES ARRAY)
+      RETURNS VARIANT NOT NULL
+      LANGUAGE JAVASCRIPT
+      AS
+      $$
+      // This variable will hold a JSON data structure that holds ONE row.
+      var row_as_json = {};
+      // This array will contain all the rows.
+      var array_of_rows = [];
+      // This variable will hold a JSON data structure that we can return as
+      // a VARIANT.
+      // This will contain ALL the rows in a single "value".
+      var table_as_json = {};
+
+      // Run SQL statement(s) and get a resultSet.
+      var command = "SELECT * FROM " + TABLE_NAME;
+      var cmd1_dict = {sqlText: command};
+      var stmt = snowflake.createStatement(cmd1_dict);
+      var rs = stmt.execute();
+
+      // Read each row and add it to the array we will return.
+      var row_num = 1;
+      while (rs.next())  {
+        // Put each row in a variable of type JSON.
+        row_as_json = {};
+        // For each column in the row...
+        for (var col_num = 0; col_num < COL_NAMES.length; col_num = col_num + 1) {
+          var col_name = COL_NAMES[col_num];
+          row_as_json[col_name] = rs.getColumnValue(col_num + 1);
+          }
+        // Add the row to the array of rows.
+        array_of_rows.push(row_as_json);
+        ++row_num;
+        }
+      // Put the array in a JSON variable (so it looks like a VARIANT to
+      // Snowflake).  The key is "key1", and the value is the array that has
+      // the rows we want.
+      table_as_json = { "key1" : array_of_rows };
+
+      // Return the rows to Snowflake, which expects a JSON-compatible VARIANT.
+      return table_as_json;
+      $$
+      ;
+CALL sp_return_table(
+        -- Table name.
+        'return_to_me',
+        -- Array of column names.
+        ARRAY_APPEND(TO_ARRAY('COL_I'), 'COL_V')
+        );
++--------------------------+
+| SP_RETURN_TABLE          |
+|--------------------------|
+| {                        |
+|   "key1": [              |
+|     {                    |
+|       "COL_I": 1,        |
+|       "COL_V": "Ariel"   |
+|     },                   |
+|     {                    |
+|       "COL_I": 2,        |
+|       "COL_V": "October" |
+|     },                   |
+|     {                    |
+|       "COL_I": 3,        |
+|       "COL_V": null      |
+|     },                   |
+|     {                    |
+|       "COL_I": null,     |
+|       "COL_V": "Project" |
+|     }                    |
+|   ]                      |
+| }                        |
++--------------------------+
+-- Use "ResultScan" to get the data from the stored procedure that
+-- "did not return a result set".
+-- Use "$1:key1" to get the value corresponding to the JSON key named "key1".
+SELECT $1:key1 FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
++------------------------+
+| $1:KEY1                |
+|------------------------|
+| [                      |
+|   {                    |
+|     "COL_I": 1,        |
+|     "COL_V": "Ariel"   |
+|   },                   |
+|   {                    |
+|     "COL_I": 2,        |
+|     "COL_V": "October" |
+|   },                   |
+|   {                    |
+|     "COL_I": 3,        |
+|     "COL_V": null      |
+|   },                   |
+|   {                    |
+|     "COL_I": null,     |
+|     "COL_V": "Project" |
+|   }                    |
+| ]                      |
++------------------------+
+-- Now get what we really want.
+SELECT VALUE:COL_I AS col_i, value:COL_V AS col_v
+  FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) AS res, LATERAL FLATTEN(input => res.$1)
+  ORDER BY COL_I;
++-------+-----------+
+| COL_I | COL_V     |
+|-------+-----------|
+| 1     | "Ariel"   |
+| 2     | "October" |
+| 3     | null      |
+| null  | "Project" |
++-------+-----------+
+This shows how to combine the previous two lines into a single line:
+
+CALL sp_return_table(
+        -- Table name.
+        'return_to_me',
+        -- Array of column names.
+        ARRAY_APPEND(TO_ARRAY('COL_I'), 'COL_V')
+        );
++--------------------------+
+| SP_RETURN_TABLE          |
+|--------------------------|
+| {                        |
+|   "key1": [              |
+|     {                    |
+|       "COL_I": 1,        |
+|       "COL_V": "Ariel"   |
+|     },                   |
+|     {                    |
+|       "COL_I": 2,        |
+|       "COL_V": "October" |
+|     },                   |
+|     {                    |
+|       "COL_I": 3,        |
+|       "COL_V": null      |
+|     },                   |
+|     {                    |
+|       "COL_I": null,     |
+|       "COL_V": "Project" |
+|     }                    |
+|   ]                      |
+| }                        |
++--------------------------+
+SELECT VALUE:COL_I AS col_i, value:COL_V AS col_v
+       FROM (SELECT $1:key1 FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))) AS res,
+            LATERAL FLATTEN(input => res.$1)
+       ORDER BY COL_I;
++-------+-----------+
+| COL_I | COL_V     |
+|-------+-----------|
+| 1     | "Ariel"   |
+| 2     | "October" |
+| 3     | null      |
+| null  | "Project" |
++-------+-----------+
+For convenience, you can wrap the preceding line in a view. This view also converts the string ‘null’ to a true NULL. You only need to create the view once. 
+However, you must call the stored procedure immediately prior to selecting from this view every time you use the view. Remember, the call to RESULT_SCAN in 
+the view is pulling from the most recent statement, which must be the CALL:
+
+CREATE VIEW stproc_view (col_i, col_v) AS 
+  SELECT NULLIF(VALUE:COL_I::VARCHAR, 'null'::VARCHAR), 
+         NULLIF(value:COL_V::VARCHAR, 'null'::VARCHAR)
+    FROM (SELECT $1:key1 AS tbl FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))) AS res, 
+         LATERAL FLATTEN(input => res.tbl);
+CALL sp_return_table(
+        -- Table name.
+        'return_to_me',
+        -- Array of column names.
+        ARRAY_APPEND(TO_ARRAY('COL_I'), 'COL_V')
+        );
++--------------------------+
+| SP_RETURN_TABLE          |
+|--------------------------|
+| {                        |
+|   "key1": [              |
+|     {                    |
+|       "COL_I": 1,        |
+|       "COL_V": "Ariel"   |
+|     },                   |
+|     {                    |
+|       "COL_I": 2,        |
+|       "COL_V": "October" |
+|     },                   |
+|     {                    |
+|       "COL_I": 3,        |
+|       "COL_V": null      |
+|     },                   |
+|     {                    |
+|       "COL_I": null,     |
+|       "COL_V": "Project" |
+|     }                    |
+|   ]                      |
+| }                        |
++--------------------------+
+SELECT * 
+    FROM stproc_view
+    ORDER BY COL_I;
++-------+---------+
+| COL_I | COL_V   |
+|-------+---------|
+| 1     | Ariel   |
+| 2     | October |
+| 3     | NULL    |
+| NULL  | Project |
++-------+---------+
+You can even use it as a true view (i.e. select a subset of it):
+
+CALL sp_return_table(
+        -- Table name.
+        'return_to_me',
+        -- Array of column names.
+        ARRAY_APPEND(TO_ARRAY('COL_I'), 'COL_V')
+        );
++--------------------------+
+| SP_RETURN_TABLE          |
+|--------------------------|
+| {                        |
+|   "key1": [              |
+|     {                    |
+|       "COL_I": 1,        |
+|       "COL_V": "Ariel"   |
+|     },                   |
+|     {                    |
+|       "COL_I": 2,        |
+|       "COL_V": "October" |
+|     },                   |
+|     {                    |
+|       "COL_I": 3,        |
+|       "COL_V": null      |
+|     },                   |
+|     {                    |
+|       "COL_I": null,     |
+|       "COL_V": "Project" |
+|     }                    |
+|   ]                      |
+| }                        |
++--------------------------+
+SELECT COL_V 
+    FROM stproc_view
+    WHERE COL_V IS NOT NULL
+    ORDER BY COL_V;
++---------+
+| COL_V   |
+|---------|
+| Ariel   |
+| October |
+| Project |
++---------+
+Remember, this is not a general purpose solution. There is a limit on the maximum size of VARIANT and ARRAY data types, and your entire result set must fit 
+into a single VARIANT or ARRAY.
+
+==================
+Protecting Privacy
+==================
+This example shows a stored procedure that is useful for an on-line retailer. This stored procedure respects customers’ privacy, while protecting legitimate interests of both the retailer and the customer. If a customer asks the retailer to delete the customer’s data for privacy reasons, then this stored procedure deletes most of the customer’s data, but leaves the customer’s purchase history if either of the following is true:
+
+Any purchased item has a warranty that has not yet expired.
+
+The customer still owes money (or the customer is owed a refund).
+
+A more real-world version of this would delete individual rows for which payment has been made and the warranty has expired.
+
+Start by creating the tables and loading them:
+
+create table reviews (customer_ID VARCHAR, review VARCHAR);
+create table purchase_history (customer_ID VARCHAR, price FLOAT, paid FLOAT,
+                               product_ID VARCHAR, purchase_date DATE);
+insert into purchase_history (customer_ID, price, paid, product_ID, purchase_date) values 
+    (1, 19.99, 19.99, 'chocolate', '2018-06-17'::DATE),
+    (2, 19.99,  0.00, 'chocolate', '2017-02-14'::DATE),
+    (3, 19.99,  19.99, 'chocolate', '2017-03-19'::DATE);
+
+insert into reviews (customer_ID, review) values (1, 'Loved the milk chocolate!');
+insert into reviews (customer_ID, review) values (2, 'Loved the dark chocolate!');
+Create the stored procedure:
+
+create or replace procedure delete_nonessential_customer_data(customer_ID varchar)
+    returns varchar not null
+    language javascript
+    as
+    $$
+
+    // If the customer posted reviews of products, delete those reviews.
+    var sql_cmd = "DELETE FROM reviews WHERE customer_ID = " + CUSTOMER_ID;
+    snowflake.execute( {sqlText: sql_cmd} );
+
+    // Delete any other records not needed for warranty or payment info.
+    // ...
+
+    var result = "Deleted non-financial, non-warranty data for customer " + CUSTOMER_ID;
+
+    // Find out if the customer has any net unpaid balance (or surplus/prepayment).
+    sql_cmd = "SELECT SUM(price) - SUM(paid) FROM purchase_history WHERE customer_ID = " + CUSTOMER_ID;
+    var stmt = snowflake.createStatement( {sqlText: sql_cmd} );
+    var rs = stmt.execute();
+    // There should be only one row, so should not need to iterate.
+    rs.next();
+    var net_amount_owed = rs.getColumnValue(1);
+
+    // Look up the number of purchases still under warranty...
+    var number_purchases_under_warranty = 0;
+    // Assuming a 1-year warranty...
+    sql_cmd = "SELECT COUNT(*) FROM purchase_history ";
+    sql_cmd += "WHERE customer_ID = " + CUSTOMER_ID;
+    // Can't use CURRENT_DATE() because that changes. So assume that today is 
+    // always June 15, 2019.
+    sql_cmd += "AND PURCHASE_DATE > dateadd(year, -1, '2019-06-15'::DATE)";
+    var stmt = snowflake.createStatement( {sqlText: sql_cmd} );
+    var rs = stmt.execute();
+    // There should be only one row, so should not need to iterate.
+    rs.next();
+    number_purchases_under_warranty = rs.getColumnValue(1);
+
+    // Check whether need to keep some purchase history data; if not, then delete the data.
+    if (net_amount_owed == 0.0 && number_purchases_under_warranty == 0)  {
+        // Delete the purchase history of this customer ...
+        sql_cmd = "DELETE FROM purchase_history WHERE customer_ID = " + CUSTOMER_ID;
+        snowflake.execute( {sqlText: sql_cmd} );
+        // ... and delete anything else that that should be deleted.
+        // ...
+        result = "Deleted all data, including financial and warranty data, for customer " + CUSTOMER_ID;
+        }
+    return result;
+    $$
+    ;
+Show the data in the tables before deleting any of that data:
+
+SELECT * FROM reviews;
++-------------+---------------------------+
+| CUSTOMER_ID | REVIEW                    |
+|-------------+---------------------------|
+| 1           | Loved the milk chocolate! |
+| 2           | Loved the dark chocolate! |
++-------------+---------------------------+
+SELECT * FROM purchase_history;
++-------------+-------+-------+------------+---------------+
+| CUSTOMER_ID | PRICE |  PAID | PRODUCT_ID | PURCHASE_DATE |
+|-------------+-------+-------+------------+---------------|
+| 1           | 19.99 | 19.99 | chocolate  | 2018-06-17    |
+| 2           | 19.99 |  0    | chocolate  | 2017-02-14    |
+| 3           | 19.99 | 19.99 | chocolate  | 2017-03-19    |
++-------------+-------+-------+------------+---------------+
+Customer #1 has a warranty that is still in effect. The stored procedure deletes the review comments that they posted, but keeps their purchase record because of the warranty:
+
+call delete_nonessential_customer_data(1);
++---------------------------------------------------------+
+| DELETE_NONESSENTIAL_CUSTOMER_DATA                       |
+|---------------------------------------------------------|
+| Deleted non-financial, non-warranty data for customer 1 |
++---------------------------------------------------------+
+SELECT * FROM reviews;
++-------------+---------------------------+
+| CUSTOMER_ID | REVIEW                    |
+|-------------+---------------------------|
+| 2           | Loved the dark chocolate! |
++-------------+---------------------------+
+SELECT * FROM purchase_history;
++-------------+-------+-------+------------+---------------+
+| CUSTOMER_ID | PRICE |  PAID | PRODUCT_ID | PURCHASE_DATE |
+|-------------+-------+-------+------------+---------------|
+| 1           | 19.99 | 19.99 | chocolate  | 2018-06-17    |
+| 2           | 19.99 |  0    | chocolate  | 2017-02-14    |
+| 3           | 19.99 | 19.99 | chocolate  | 2017-03-19    |
++-------------+-------+-------+------------+---------------+
+Customer #2 still owes money. The stored procedure deletes their review comments, but keeps their purchase record:
+
+call delete_nonessential_customer_data(2);
++---------------------------------------------------------+
+| DELETE_NONESSENTIAL_CUSTOMER_DATA                       |
+|---------------------------------------------------------|
+| Deleted non-financial, non-warranty data for customer 2 |
++---------------------------------------------------------+
+SELECT * FROM reviews;
++-------------+--------+
+| CUSTOMER_ID | REVIEW |
+|-------------+--------|
++-------------+--------+
+SELECT * FROM purchase_history;
++-------------+-------+-------+------------+---------------+
+| CUSTOMER_ID | PRICE |  PAID | PRODUCT_ID | PURCHASE_DATE |
+|-------------+-------+-------+------------+---------------|
+| 1           | 19.99 | 19.99 | chocolate  | 2018-06-17    |
+| 2           | 19.99 |  0    | chocolate  | 2017-02-14    |
+| 3           | 19.99 | 19.99 | chocolate  | 2017-03-19    |
++-------------+-------+-------+------------+---------------+
+Customer #3 does not owe any money (and is not owed any money). Their warranty expired, so the stored procedure deletes both the review comments and the purchase records:
+
+call delete_nonessential_customer_data(3);
++-------------------------------------------------------------------------+
+| DELETE_NONESSENTIAL_CUSTOMER_DATA                                       |
+|-------------------------------------------------------------------------|
+| Deleted all data, including financial and warranty data, for customer 3 |
++-------------------------------------------------------------------------+
+SELECT * FROM reviews;
++-------------+--------+
+| CUSTOMER_ID | REVIEW |
+|-------------+--------|
++-------------+--------+
+SELECT * FROM purchase_history;
++-------------+-------+-------+------------+---------------+
+| CUSTOMER_ID | PRICE |  PAID | PRODUCT_ID | PURCHASE_DATE |
+|-------------+-------+-------+------------+---------------|
+| 1           | 19.99 | 19.99 | chocolate  | 2018-06-17    |
+| 2           | 19.99 |  0    | chocolate  | 2017-02-14    |
++-------------+-------+-------+------------+---------------+
+
+=================================================================================
+Using Session Variables with Caller’s Rights and Owner’s Rights Stored Procedures
+=================================================================================
+These examples illustrate one of the key differences between caller’s rights and owner’s rights stored procedures. They attempt to use session variables 
+in two ways:
+
+	1.	Set a session variable before calling the stored procedure, then use the session variable inside the stored procedure.
+
+	2.	Set a session variable inside the stored procedure, then use the session variable after returning from the stored procedures.
+
+Both using the session variable and setting the session variable work correctly in a caller’s rights stored procedure. Both fail when using an owner’s 
+rights stored procedure even if the caller is the owner.
+
+Caller’s Rights Stored Procedure
+The following example demonstrates a caller’s rights stored procedure.
+
+Create and load a table:
+
+create table sv_table (f float);
+insert into sv_table (f) values (49), (51);
+Set a session variable:
+
+set SESSION_VAR1 = 50;
+Create a caller’s rights stored procedure that uses one session variable and sets another:
+
+create procedure session_var_user()
+  returns float
+  language javascript
+  EXECUTE AS CALLER
+  as
+  $$
+  // Set the second session variable
+  var stmt = snowflake.createStatement(
+      {sqlText: "set SESSION_VAR2 = 'I was set inside the StProc.'"}
+      );
+  var rs = stmt.execute();  // we ignore the result in this case
+  // Run a query using the first session variable
+  stmt = snowflake.createStatement(
+      {sqlText: "select f from sv_table where f > $SESSION_VAR1"}
+      );
+  rs = stmt.execute();
+  rs.next();
+  var output = rs.getColumnValue(1);
+  return output;
+  $$
+  ;
+Call the procedure:
+
+CALL session_var_user();
++------------------+
+| SESSION_VAR_USER |
+|------------------|
+|               51 |
++------------------+
+View the value of the session variable set inside the stored procedure:
+
+SELECT $SESSION_VAR2;
++------------------------------+
+| $SESSION_VAR2                |
+|------------------------------|
+| I was set inside the StProc. |
++------------------------------+
+Note
+
+Although you can set a session variable inside a stored procedure and leave it set after the end of the procedure, Snowflake does not recommend doing this.
+
+Owner’s Rights Stored Procedure
+The following example demonstrates an owner’s rights stored procedure.
+
+Create an owner’s rights stored procedure that uses a session variable:
+
+create procedure cannot_use_session_vars()
+  returns float
+  language javascript
+  EXECUTE AS OWNER
+  as
+  $$
+  // Run a query using the first session variable
+  var stmt = snowflake.createStatement(
+      {sqlText: "select f from sv_table where f > $SESSION_VAR1"}
+      );
+  var rs = stmt.execute();
+  rs.next();
+  var output = rs.getColumnValue(1);
+  return output;
+  $$
+  ;
+Call the procedure (it should fail):
+
+CALL cannot_use_session_vars();
+Create an owner’s rights stored procedure that tries to set a session variable:
+
+create procedure cannot_set_session_vars()
+  returns float
+  language javascript
+  EXECUTE AS OWNER
+  as
+  $$
+  // Set the second session variable
+  var stmt = snowflake.createStatement(
+      {sqlText: "set SESSION_VAR2 = 'I was set inside the StProc.'"}
+      );
+  var rs = stmt.execute();  // we ignore the result in this case
+  return 3.0;   // dummy value.
+  $$
+  ;
+Call the procedure (it should fail):
+
+CALL cannot_set_session_vars();
+
+===================================================================================================================================================
+===================================================================================================================================================
+
+================================
+JavaScript Stored Procedures API
+================================
+
+This topic covers the JavaScript API for Snowflake stored procedures. The API consists of JavaScript objects and the methods in those objects.
+
+Object: snowflake
+=================
+The snowflake object is accessible by default to the JavaScript code in a stored procedure; you do not need to create the object. This object contains 
+the methods in the stored procedure API. For example:
+
+create procedure stproc1()
+  returns string not null
+  language javascript
+  as
+  -- "$$" is the delimiter for the beginning and end of the stored procedure.
+  $$
+  // The "snowflake" object is provided automatically in each stored procedure.
+  // You don't need to create it.
+  //         |||||||||
+  //         vvvvvvvvv
+  var statement = snowflake.createStatement(...);
+  ...
+  $$
+  ;
+  
+Methods
+=======
+addEvent(name[, attributes])
+createStatement(sql_command_object)
+execute(command)
+log(level, message)
+setSpanAttribute(key, value)
+
+
+Object: Statement
+=================
+A stored procedure Statement object provides the methods for executing a query statement and accessing metadata (such as column data types) about 
+the statement.
+
+At the time the Statement object is created, the SQL is parsed, and a prepared statement is created.
+
+Methods
+=======
+execute()
+getColumnCount()
+getColumnName(colIdx)
+getColumnScale(colIdx)
+getColumnSqlType(colIdx|colName)
+getColumnType(colIdx|colName)
+getNumDuplicateRowsUpdated()
+getNumRowsAffected()
+getNumRowsDeleted()
+getNumRowsInserted()
+getNumRowsUpdated()
+getRowCount()
+getQueryId()
+getSqlText()
+isColumnNullable(colIdx)
+isColumnText(colIdx)
+isColumnArray(colIdx)
+isColumnBinary(colIdx)
+isColumnBoolean(colIdx)
+isColumnDate(colIdx)
+isColumnNumber(colIdx)
+isColumnObject(colIdx)
+isColumnTime(colIdx)
+isColumnTimestamp(colIdx)
+isColumnVariant(colIdx)
+
+
+create or replace table work_log (log_id number autoincrement (1,1) order, log_type varchar2(10) default 'INFO', message varchar2(1000) not null);
+
+create or replace procedure get_meta_data_info(v_deptno double)
+  returns string not null
+  language javascript
+  as     
+  $$  
+    var v_result ="";
+    var my_sql_command = "select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno="+V_DEPTNO;
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	v_col_count  = statement1.getColumnCount();
+	v_col_name   = statement1.getColumnName(2);
+	v_col_sclae  = statement1.getColumnScale(2);
+	v_col_sql_type = statement1.getColumnSqlType(2);
+	v_col_js_type = statement1.getColumnType(2);
+	v_is_nullable = statement1.isColumnNullable(2);
+	v_is_number = statement1.isColumnNumber(2);
+	v_is_boolean = statement1.isColumnBoolean(2);
+	v_is_text = statement1.isColumnText(2);
+	v_is_ts = statement1.isColumnTimestamp(2);
+	v_is_var = statement1.isColumnVariant(2);
+	v_row_cnt = statement1.getRowCount();
+	v_qry_id = statement1.getQueryId();
+	v_sql_txt = statement1.getSqlText();
+	var total_sal = 0.0;
+	v_log = "v_col_count : "+v_col_count+",\n"+
+			"v_col_name : "+v_col_name+",\n"+
+			"v_col_sclae : "+v_col_sclae+",\n"+
+            "v_col_sql_type : "+v_col_sql_type+",\n"+
+			"v_col_js_type : "+v_col_js_type+",\n"+
+			"v_is_nullable : "+v_is_nullable+",\n"+
+			"v_is_number : "+v_is_number+",\n"+
+			"v_is_boolean : "+v_is_boolean+",\n"+
+			"v_is_text : "+v_is_text+",\n"+
+			"v_is_ts : "+v_is_ts+",\n"+
+			"v_is_var : "+v_is_var+",\n"+
+			"v_row_cnt : "+v_row_cnt+",\n"+
+			"v_qry_id : "+v_qry_id+",\n"+
+			"v_sql_txt : "+v_sql_txt;		
+    // Loop through the results, processing one row at a time... 
+    while (result_set1.next())  {
+       var sal = result_set1.getColumnValue(4);
+       var comm = result_set1.getColumnValue(5);
+	   total_sal = total_sal+sal+comm;
+       }
+	v_log = v_log+"\n Total Salary : "+total_sal
+  return v_log;
+  $$
+  ;
+  
+call get_meta_data_info(10);
+v_col_count : 5,
+v_col_name : ENAME,
+v_col_sclae : 0,
+v_col_sql_type : TEXT,
+v_col_js_type : string,
+v_is_nullable : true,
+v_is_number : false,
+v_is_boolean : false,
+v_is_text : true,
+v_is_ts : false,
+v_is_var : false,
+v_row_cnt : 1,
+v_qry_id : 01b4d7e8-3202-9c78-0001-c836000be3be,
+v_sql_txt : select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno=10 
+Total Salary : 2450
+  
+create or replace procedure create_work_log(v_deptno double)
+  returns string not null
+  language javascript
+  as     
+  $$  
+    var v_result ="";
+    var my_sql_command = "select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno="+V_DEPTNO;
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	v_col_count  = statement1.getColumnCount();
+	v_col_name   = statement1.getColumnName(2);
+	v_col_sclae  = statement1.getColumnScale(2);
+	v_col_sql_type = statement1.getColumnSqlType(2);
+	v_col_js_type = statement1.getColumnType(2);
+	v_is_nullable = statement1.isColumnNullable(2);
+	v_is_number = statement1.isColumnNumber(2);
+	v_is_boolean = statement1.isColumnBoolean(2);
+	v_is_text = statement1.isColumnText(2);
+	v_is_ts = statement1.isColumnTimestamp(2);
+	v_is_var = statement1.isColumnVariant(2);
+	v_row_cnt = statement1.getRowCount();
+	v_qry_id = statement1.getQueryId();
+	v_sql_txt = statement1.getSqlText();
+	var total_sal = 0.0;
+	v_log = "v_col_count : "+v_col_count+",\n"+
+			"v_col_name : "+v_col_name+",\n"+
+			"v_col_sclae : "+v_col_sclae+",\n"+
+            "v_col_sql_type : "+v_col_sql_type+",\n"+
+			"v_col_js_type : "+v_col_js_type+",\n"+
+			"v_is_nullable : "+v_is_nullable+",\n"+
+			"v_is_number : "+v_is_number+",\n"+
+			"v_is_boolean : "+v_is_boolean+",\n"+
+			"v_is_text : "+v_is_text+",\n"+
+			"v_is_ts : "+v_is_ts+",\n"+
+			"v_is_var : "+v_is_var+",\n"+
+			"v_row_cnt : "+v_row_cnt+",\n"+
+			"v_qry_id : "+v_qry_id+",\n"+
+			"v_sql_txt : "+v_sql_txt;		
+    // Loop through the results, processing one row at a time... 
+    while (result_set1.next())  {
+       var sal = result_set1.getColumnValue(4);
+       var comm = result_set1.getColumnValue(5);
+	   total_sal = total_sal+sal+comm;
+       }
+	v_log = v_log+"\nTotal Salary : "+total_sal
+	my_sql_command = "Insert into b21_streaming.streaming_schema.emp_src(empno,ename,job,sal,comm,deptno) values (1234,'Nanda','Analyst',9875,300,10)";
+    statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    result_set1 = statement1.execute();
+	v_sql_txt = statement1.getSqlText();
+	var v_NumRows_Inserted = statement1.getNumRowsInserted();
+	v_log = v_log+"\nInsert Query : "+v_sql_txt+"\n"+
+			"v_NumRows_Inserted : "+v_NumRows_Inserted;
+	my_sql_command = "Update b21_streaming.streaming_schema.emp_src set comm = sal*.01 where deptno = 30 and comm is null";	
+    statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    result_set1 = statement1.execute();
+	v_sql_txt = statement1.getSqlText();
+	var v_NumRows_Updated = statement1.getNumRowsUpdated();
+	v_log = v_log+"\nUpdate Query : "+v_sql_txt+"\n"+
+			"v_NumRows_Updated : "+v_NumRows_Updated;
+	my_sql_command = "delete from b21_streaming.streaming_schema.emp_src where ename='SCOTT'";
+    statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    result_set1 = statement1.execute();
+	var v_NumRows_Deleted = statement1.getNumRowsDeleted();
+	v_sql_txt = statement1.getSqlText();
+	v_log = v_log+"\nDelete Query : "+v_sql_txt+"\n"+
+			"v_NumRows_Deleted : "+v_NumRows_Deleted;
+  return v_log;
+  $$
+  ;
+  
+call create_work_log(10);
+v_col_count : 5,
+v_col_name : ENAME,
+v_col_sclae : 0,
+v_col_sql_type : TEXT,
+v_col_js_type : string,
+v_is_nullable : true,
+v_is_number : false,
+v_is_boolean : false,
+v_is_text : true,
+v_is_ts : false,
+v_is_var : false,
+v_row_cnt : 1,
+v_qry_id : 01b4d845-3202-9c78-0001-c836000be7da,
+v_sql_txt : select empno,ename,job,sal,nvl(comm,0) from b21_streaming.streaming_schema.emp_src where deptno=10
+Total Salary : 2450
+Insert Query : Insert into b21_streaming.streaming_schema.emp_src(empno,ename,job,sal,comm,deptno) values (1234,'Nanda','Analyst',9875,300,10)
+v_NumRows_Inserted : 1
+Update Query : Update b21_streaming.streaming_schema.emp_src set comm = sal*.01 where deptno = 30 and comm is null
+v_NumRows_Updated : 1
+Delete Query : delete from b21_streaming.streaming_schema.emp_src where ename='SCOTT'
+v_NumRows_Deleted : 1
