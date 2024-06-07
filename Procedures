@@ -2100,3 +2100,174 @@ Update Query : Update b21_streaming.streaming_schema.emp_src set comm = sal*.01 
 v_NumRows_Updated : 1
 Delete Query : delete from b21_streaming.streaming_schema.emp_src where ename='SCOTT'
 v_NumRows_Deleted : 1
+
+=================
+Object: ResultSet
+=================
+
+This object contains the results returned by a query. The results are treated as a set of zero or more rows, each of which contains one 
+or more columns. The term “set” is not used here in the mathematical sense. In mathematics, a set is unordered, whereas a ResultSet has an 
+order.
+
+A ResultSet is similar in some ways to the concept of a SQL cursor. For example, you can see one row at a time in a ResultSet, just as 
+you can see one row at a time in a cursor.
+
+Typically, after you retrieve a ResultSet, you iterate through it by repeating the following operations:
+
+Call next() to get the next row.
+
+Retrieve data from the current row by calling methods such as getColumnValue().
+
+If you do not know enough about the data in the ResultSet (e.g. you do not know the data type of each column), then you can call 
+other methods that provide information about the data.
+
+Some of the methods of the ResultSet object are similar to the methods of the Statement object. For example, both objects have a 
+getColumnSqlType(colIdx) method.
+
+Methods
+=======
+getColumnCount()
+getColumnSqlType(colIdx|colName)
+getColumnValue(colIdx|colName)
+getColumnValueAsString(colIdx|colName)
+getNumRowsAffected()
+getQueryId()
+getRowCount()
+next()
+
+create or replace procedure get_result_set_info(v_deptno double default null)
+  returns string not null
+  language javascript
+  as     
+  $$  
+    var v_result ="";
+    var my_sql_command ="";
+    if (V_DEPTNO==null||V_DEPTNO==undefined){
+        my_sql_command = "select * from b21_streaming.streaming_schema.emp_src";
+    }
+    else{
+        my_sql_command = "select * from b21_streaming.streaming_schema.emp_src where deptno="+V_DEPTNO;
+    }
+    var statement1 = snowflake.createStatement( {sqlText: my_sql_command} );
+    var result_set1 = statement1.execute();
+	var v_total_sal = 0.0;
+	v_col_count  = result_set1.getColumnCount();
+	v_row_count  = result_set1.getRowCount();
+	v_rows_affected = result_set1.getNumRowsAffected();
+	v_query_id = result_set1.getQueryId()
+    v_result="COLUMN_HEADER|"
+	for (let i = 0; i < v_col_count; i++){
+		v_result += result_set1.getColumnName(i+1)+"|"
+	}
+	v_result +="GROSS_SALARY\n";
+    v_result +="DATA_TYPE|"
+	for (let i = 0; i < v_col_count; i++){
+		v_result += result_set1.getColumnType(i+1)+"|"
+	}
+	v_result +="number\n";
+	while (result_set1.next())  {
+    v_result += "DATA|"
+	for (let i = 0; i < v_col_count; i++){        
+		if (result_set1.isColumnDate(i+1)||result_set1.isColumnTimestamp(i+1)){
+			v_result += result_set1.getColumnValueAsString(i+1)+"|"
+		}
+		else{
+			v_result += result_set1.getColumnValue(i+1)+"|"
+	   }
+	   }
+       var v_tot_sal = 0.0;	
+       var v_sal = result_set1.getColumnValue("SAL");
+       var v_comm = result_set1.getColumnValue("COMM");
+	   v_tot_sal = v_sal+(v_comm==null?0:v_comm)
+	   v_result += v_tot_sal+"\n"
+	   v_total_sal += v_tot_sal;	   
+       }	
+	v_log = "Number of columns : "+v_col_count+",\n"+
+			"Number of rows : "+v_row_count+",\n"+
+			"rows_affected : "+v_rows_affected+",\n"+
+            "Query ID : "+v_query_id+",\n"+			
+			"Sum of Salary : "+v_total_sal+",\n\n\n"+v_result  
+  return v_log;
+  $$
+  ;
+
+call get_result_set_info(20);
+Number of columns : 8,
+Number of rows : 3,
+rows_affected : 0,
+Query ID : 01b4da1c-3202-9bda-0001-c836000c291a,
+Sum of Salary : 8975,
+
+
+COLUMN_HEADER|EMPNO|ENAME|JOB|MGR|HIREDATE|SAL|COMM|DEPTNO|GROSS_SALARY
+DATA_TYPE|number|string|string|number|date|number|number|number|number
+DATA|7566|JONES|MANAGER|7839|1981-04-02 00:00:00|2975|null|20|2975
+DATA|7788|SCOTT|ANALYST|7566|1987-07-13 00:00:00|3000|null|20|3000
+DATA|7902|FORD|ANALYST|7566|1981-12-03 00:00:00|3000|null|20|3000
+
+call get_result_set_info();
+Number of columns : 8,
+Number of rows : 6,
+rows_affected : 0,
+Query ID : 01b4da19-3202-9c84-0001-c836000c0ac2,
+Sum of Salary : 24450,
+
+
+COLUMN_HEADER|EMPNO|ENAME|JOB|MGR|HIREDATE|SAL|COMM|DEPTNO|GROSS_SALARY
+DATA_TYPE|number|string|string|number|date|number|number|number|number
+DATA|7698|BLAKE|MANAGER|7839|1981-05-01 00:00:00|2850|null|30|2850
+DATA|7782|CLARK|MANAGER|7839|1981-06-09 00:00:00|2450|null|10|2450
+DATA|7566|JONES|MANAGER|7839|1981-04-02 00:00:00|2975|null|20|2975
+DATA|7788|SCOTT|ANALYST|7566|1987-07-13 00:00:00|3000|null|20|3000
+
+
+========================================================================================================
+Snowflake Scripting using SQL 
+
+create or replace procedure get_tot_sal_sql()
+  returns number not null
+  language SQL
+  as     
+  $$
+  Begin
+    let v_sal number:=0;
+    let v_comm number:=0;
+	let v_total_sal number:=0;
+    let c1 cursor for (select empno,ename,job,sal,comm from b21_streaming.streaming_schema.emp_src);	
+    for i in c1		
+	loop
+		v_sal := i.sal;
+        v_comm := nvl(i.comm,0);
+	    v_total_sal := v_total_sal+v_sal+v_comm;
+	end loop;
+	return v_total_sal;
+  end;
+  $$
+  ;
+  
+--using bind variables  
+create or replace procedure get_dept_tot_sal_sql(p_deptno NUMBER)
+  returns number not null
+  language SQL
+  as     
+  $$
+  Declare
+    v_sal number:=0;
+    v_comm number:=0;
+	v_total_sal number:=0;
+    res RESULTSET DEFAULT (select empno,ename,job,sal,comm,deptno from b21_streaming.streaming_schema.emp_src where deptno = :p_deptno or :p_deptno is null);
+    c1 cursor for res;	
+  Begin
+    
+    for i in c1
+	loop
+		v_sal := i.sal;
+        v_comm := nvl(i.comm,0);
+	    v_total_sal := v_total_sal+v_sal+v_comm;
+	end loop;
+	return v_total_sal;
+  end;
+  $$
+  ;
+
+SELECT get_dept_tot_sal_sql(10) FROM DUAL
