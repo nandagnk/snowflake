@@ -1,0 +1,484 @@
+//BEGIN … END (Snowflake Scripting)
+EXECUTE IMMEDIATE $$
+BEGIN
+    CREATE TABLE parent (ID INTEGER);
+    CREATE TABLE child (ID INTEGER, parent_ID INTEGER);
+    RETURN 'Completed';
+END;
+$$
+;
+
+EXECUTE IMMEDIATE $$
+BEGIN
+    BEGIN TRANSACTION;
+    TRUNCATE TABLE child;
+    TRUNCATE TABLE parent;
+    COMMIT;
+    RETURN 'Transaction Completed Successfully';
+END;
+$$
+;
+
+//BREAK (Snowflake Scripting)
+
+DECLARE
+  i INTEGER;
+  j INTEGER;
+BEGIN
+  i := 1;
+  j := 1;
+  WHILE (i <= 4) DO
+    WHILE (j <= 4) DO
+      -- Exit when j is 3, even if i is still 1.
+      IF (j = 3) THEN
+        BREAK outer_loop;  ---exit also works here both break and exist are same.
+      END IF;
+      j := j + 1;
+    END WHILE inner_loop;
+    i := i + 1;
+  END WHILE outer_loop;
+  -- Execution resumes here after the BREAK executes.
+  RETURN i;
+END;
+
+//CASE (Snowflake Scripting)
+
+CREATE or replace PROCEDURE case_demo_01(v integer)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS
+  BEGIN
+    CASE 
+      WHEN (v < 0) THEN
+        RETURN 'Age can''t be negative';
+      WHEN (v > 0 and v < 13) then
+        return 'Child'; 
+      when (v >= 13 and v < 20) then
+        return 'Teenager';
+      when (v > 19 and v < 60) then
+        RETURN 'Adult';
+      when (v > 60 and v < 100) then
+        return 'Senior Citizen';
+      else
+        return 'Invalid Age';
+    END;
+  END;
+
+call case_demo_01(175);
+
+select *
+from information_schema.tables
+where table_name like '%LOG%';
+
+//CONTINUE (Snowflake Scripting)
+//CONTINUE (or ITERATE) skips the rest of the statements in the iteration of a loop and starts the next 
+//iteration of the loop.
+
+
+DECLARE
+    counter1 NUMBER(8, 0);
+    counter2 NUMBER(8, 0);
+BEGIN
+    counter1 := 0;
+    counter2 := 0;
+    WHILE (counter1 < 3) DO
+        counter1 := counter1 + 1;
+        CONTINUE;
+        //the below line is igored by the continue statement
+        counter2 := counter2 + 1;
+    END WHILE;
+    RETURN counter2;
+END;
+
+
+//DECLARE (Snowflake Scripting)
+//Declares one or more Snowflake Scripting variables, cursors, RESULTSETs, or exceptions.
+
+declare
+    v_deptno number:=0;   //variable declaration
+    v_tot_sal_10 number:=0;
+    v_tot_sal_20 number:=0;
+    v_sal number:=0;
+    v_comm number:=0;
+    c1 cursor for select sal,comm from emp where deptno = ?; //cursor declaration
+    v_res resultset;       //resultset declaration
+    MY_EXCEPTION EXCEPTION (-20001, 'Sample message');
+    v_output string;
+Begin    
+    v_deptno:=10;
+    open c1 using(v_deptno);
+    FOR rec IN c1
+    Loop
+            v_tot_sal_10 := v_tot_sal_10 + rec.sal+nvl(rec.comm,0);
+    END Loop;
+    CLOSE c1;
+    v_output:='Total Salary from Deptno 10 is : '||v_tot_sal_10;
+
+    v_res:= (select * from table(get_emp_data_by_deptno(20)));
+    for i in v_res
+    loop
+        v_tot_sal_20:=v_tot_sal_20+i.sal+nvl(i.comm,0);
+    end loop;
+    v_output:=v_output||chr(13)||'Total Salary from Deptno 20 is : '||v_tot_sal_20;
+
+    if (v_tot_sal_10 < v_tot_sal_20) then
+        RAISE MY_EXCEPTION;
+    end if;
+    v_output:=v_output||chr(13)||'Depart 10th Salary is greater than Depart 20th Salary.';
+    return v_output;
+EXCEPTION
+        WHEN MY_EXCEPTION THEN      
+            v_output:=v_output||chr(13)||'Department 10th Salary is lesser than Department 20th Salary';
+            RETURN OBJECT_CONSTRUCT('Error type', 'MY_EXCEPTION',
+                                    'SQLCODE', SQLCODE,
+                                    'SQLERRM', SQLERRM,
+                                    'SQLSTATE', SQLSTATE,
+                                    'Error Mesg',v_output);
+        WHEN STATEMENT_ERROR THEN
+            RETURN OBJECT_CONSTRUCT('Error type', 'STATEMENT_ERROR',
+                                    'SQLCODE', SQLCODE,
+                                    'SQLERRM', SQLERRM,
+                                    'SQLSTATE', SQLSTATE);
+        WHEN EXPRESSION_ERROR THEN
+            RETURN OBJECT_CONSTRUCT('Error type', 'EXPRESSION_ERROR',
+                                    'SQLCODE', SQLCODE,
+                                    'SQLERRM', SQLERRM,
+                                    'SQLSTATE', SQLSTATE);
+        WHEN OTHER THEN
+            RETURN OBJECT_CONSTRUCT('Error type', 'Other error',
+                                    'SQLCODE', SQLCODE,
+                                    'SQLERRM', SQLERRM,
+                                    'SQLSTATE', SQLSTATE);
+        
+END;
+
+//LET (Snowflake Scripting)
+//Assigns an expression to a Snowflake Scripting variable, cursor, or RESULTSET.
+
+DECLARE
+  profit number(38, 2) DEFAULT 0.0;
+BEGIN
+  LET cost number(38, 2) := 100.0;
+  LET revenue number(38, 2) DEFAULT 110.0;
+
+  profit := revenue - cost;
+  RETURN profit;
+END;
+
+//LOOP (Snowflake Scripting)
+//A LOOP loop does not specify a number of iterations or a terminating condition. The user must explicitly 
+//exit the loop by using BREAK or RETURN inside the loop.
+
+CREATE TABLE dummy_data (ID INTEGER);
+
+CREATE PROCEDURE break_out_of_loop()
+RETURNS INTEGER
+LANGUAGE SQL
+AS
+$$
+    DECLARE
+        counter INTEGER;
+    BEGIN
+        counter := 0;
+        LOOP
+            counter := counter + 1;
+            IF (counter > 5) THEN
+                BREAK;
+            END IF;
+            INSERT INTO dummy_data (ID) VALUES (:counter);
+        END LOOP;
+        RETURN counter;
+    END;
+$$
+;
+
+CALL break_out_of_loop();
+
+SELECT *
+    FROM dummy_data
+    ORDER BY ID;
+
+//WHILE (Snowflake Scripting)
+//A WHILE loop iterates while a specified condition is true.
+
+CREATE PROCEDURE power_of_2()
+RETURNS NUMBER(8, 0)
+LANGUAGE SQL
+AS
+$$
+DECLARE
+    counter NUMBER(8, 0);      -- Loop counter.
+    power_of_2 NUMBER(8, 0);   -- Stores the most recent power of 2 that we calculated.
+BEGIN
+    counter := 1;
+    power_of_2 := 1;
+    WHILE (counter <= 8) DO
+        power_of_2 := power_of_2 * 2;
+        counter := counter + 1;
+    END WHILE;
+    RETURN power_of_2;
+END;
+$$
+;
+
+CALL power_of_2();
+
+=====================================================================================================================
+creating store procedure and functions using the above SQL reference.
+
+create schema test_schema;
+use ha_dev_db.test_schema;
+
+CREATE OR REPLACE PROCEDURE output_message(message VARCHAR)
+RETURNS VARCHAR NOT NULL
+LANGUAGE SQL
+AS
+BEGIN
+  RETURN message;
+END;
+
+call output_message('Welcome to Snowflake scripting');
+
+
+//Using arguments passed to a stored procedure
+CREATE OR REPLACE PROCEDURE find_invoice_by_id_via_execute_immediate(id VARCHAR)
+RETURNS TABLE (id INTEGER, price NUMBER(12,2))
+LANGUAGE SQL
+AS
+DECLARE
+  select_statement VARCHAR;
+  res RESULTSET;
+BEGIN
+  select_statement := 'SELECT * FROM invoices WHERE id = ' || id;
+  res := (EXECUTE IMMEDIATE :select_statement);
+  RETURN TABLE(res);
+END;
+
+---use the below in case of using snowflake scripting in snowSQL, the Classic Console, and Python Connector
+CREATE OR REPLACE PROCEDURE output_message(message VARCHAR)
+RETURNS VARCHAR NOT NULL
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  RETURN message;
+END;
+$$
+;
+
+call output_message('Welcome to Snowflake scripting');
+
+CREATE OR REPLACE PROCEDURE find_max_number(number_1 INTEGER, number_2 INTEGER)
+RETURNS INTEGER NOT NULL
+LANGUAGE SQL
+AS
+BEGIN
+  IF (number_1 > number_2) THEN
+    RETURN number_1;
+  ELSE
+    RETURN number_2;
+  END IF;
+END;
+
+call find_max_number(10,12);
+
+CREATE OR REPLACE function get_max_number(number_1 INTEGER, number_2 INTEGER)
+RETURNS INTEGER NOT NULL
+LANGUAGE SQL
+AS
+$$
+select 
+  case when (number_1>number_2) then 
+    number_1 
+  else 
+    number_2 
+  end
+$$
+;
+//NOTE SQL Function doesn't support PLSQL block it supports only select queries in the function definition.
+
+SELECT get_max_number(20,25);
+
+set var1=get_max_number(50,25);
+
+select  $var1;
+
+//Using an argument in a SQL statement (binding)
+CREATE OR REPLACE PROCEDURE find_emp_by_id(id integer)
+RETURNS TABLE (empno number, ename string, job string, sal number, comm number, deptno number)
+LANGUAGE SQL
+AS
+DECLARE
+  res RESULTSET DEFAULT (SELECT empno,ename,job,sal,comm,deptno FROM emp WHERE empno = :id);
+BEGIN
+  RETURN TABLE(res);
+END;
+
+CALL find_emp_by_id(7876);
+
+CREATE OR REPLACE PROCEDURE find_emp_by_empid(id integer)
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+DECLARE
+  res RESULTSET DEFAULT (SELECT empno,ename,job,sal,comm,deptno FROM emp WHERE empno = :id);
+BEGIN
+  RETURN TABLE(res);
+END;
+
+CALL find_emp_by_empid(7876);
+
+CREATE OR REPLACE function get_emp_data_by_deptno(dno integer)
+RETURNS table(empno number, ename string, job string, sal number, comm number, deptno number)
+AS
+$$
+SELECT empno,ename,job,sal,comm,deptno FROM emp WHERE deptno = dno
+$$
+;
+
+select * from table(get_emp_data_by_deptno(20));
+
+//Using an argument as an object identifier
+CREATE OR REPLACE PROCEDURE get_row_count(table_name VARCHAR)
+RETURNS INTEGER NOT NULL
+LANGUAGE SQL
+AS
+DECLARE
+  row_count INTEGER DEFAULT 0;
+  res RESULTSET DEFAULT (SELECT COUNT(1) AS COUNT FROM IDENTIFIER(:table_name));
+  c1 CURSOR FOR res;
+BEGIN
+  open c1;
+  fetch c1 into row_count;
+  close c1;
+  RETURN row_count;
+END;
+
+call get_row_count('emp');
+
+call get_row_count('dept');
+
+
+CREATE OR REPLACE function get_rec_count(p_db varchar, p_schema varchar, p_table VARCHAR)
+RETURNS INTEGER NOT NULL
+LANGUAGE SQL
+AS
+$$
+    select row_count 
+      from information_schema.tables 
+     where table_catalog = upper(p_db)
+       and table_schema = upper(p_schema)
+       and table_name = UPPER(p_table)
+$$
+;
+
+SELECT get_rec_count('ha_dev_db','test_schema','emp') emp_rec_count,
+       get_rec_count('ha_dev_db','test_schema','dept') dept_rec_count;
+
+select * from information_schema.tables where table_name = 'EMP';
+
+//Using an argument when building a string for a SQL statement
+CREATE OR REPLACE PROCEDURE find_emp_by_id_via_execute_immediate(id VARCHAR)
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+DECLARE
+  v_sql VARCHAR;
+  res RESULTSET;
+BEGIN
+  v_sql := 'SELECT empno,ename,job,deptno FROM emp WHERE empno = ' || id;
+  res := (EXECUTE IMMEDIATE :v_sql);
+  RETURN TABLE(res);
+END;
+
+call find_emp_by_id_via_execute_immediate(7876);
+
+
+CREATE OR REPLACE function get_top_N_salary(p_num integer)
+RETURNS table() as
+$$
+select empno,ename,job,sal,deptno 
+from emp 
+order by sal desc
+limit p_num
+$$
+;
+
+CREATE OR REPLACE function get_top_5_salary()
+RETURNS table(empno number, ename string, job string, sal number, comm number, deptno number)
+AS
+$$
+SELECT empno,ename,job,sal,comm,deptno FROM emp order by sal desc limit 5
+$$
+;
+
+select * from table(get_top_5_salary()) ;
+
+
+CREATE OR REPLACE PROCEDURE get_top_5_sal()
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+$$
+DECLARE
+  res RESULTSET DEFAULT (SELECT empno,ename,job,sal,comm,deptno from emp order BY sal DESC LIMIT 5);
+BEGIN
+  RETURN TABLE(res);
+END;
+$$
+;
+
+call get_top_5_sal();
+
+//Calling a stored procedure from another stored procedure
+
+CREATE OR REPLACE TABLE int_table (value INTEGER);
+
+CREATE OR REPLACE PROCEDURE insert_value(value INTEGER)
+RETURNS VARCHAR NOT NULL
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  INSERT INTO int_table VALUES (:value);
+  RETURN 'Rows inserted: ' || SQLROWCOUNT;
+END;
+$$
+;
+
+CREATE OR REPLACE PROCEDURE insert_two_values(value1 INTEGER, value2 INTEGER)
+RETURNS VARCHAR NOT NULL
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  CALL insert_value(:value1);
+  CALL insert_value(:value2);
+  RETURN 'Finished calling stored procedures';
+END;
+$$
+;
+
+call insert_two_values(2,5);
+
+select * from int_table;
+
+//Using the value returned from a stored procedure call
+CREATE OR REPLACE PROCEDURE sum_top_5_sal()
+  RETURNS integer NOT NULL
+  LANGUAGE SQL
+  AS
+  DECLARE
+    v_sum_sal number:=0;
+    res RESULTSET;    
+  BEGIN
+    //res := (CALL get_top_5_sal());  ---calling procedure
+    res:=(select * from table(get_top_5_salary()));    
+    for i in res
+    loop
+        v_sum_sal:=v_sum_sal+i.sal+nvl(i.comm,0);
+    end loop;
+    return v_sum_sal;
+  END;
+
+call sum_top_5_sal();
