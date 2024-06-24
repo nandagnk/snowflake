@@ -1,0 +1,1206 @@
+======================
+Snowflake Architecture
+======================
+Reference : https://docs.snowflake.com/en/user-guide/intro-key-concepts
+
+1. Cloud Services Layer
+2. Query Proecessing Layer
+3. Data Storage Layer - Hybird Columnar Storage - Compressed and saved as blobs in Cloud storage.
+
+1. Cloud Services Layer
+=======================
+Authentication, Access Control
+Security
+Infrastructure manager  -- creation of warehouse,users, roles, any objects - no need of warehouse to perform these operations, managed internally.
+Matadata manager - Metadata management 
+Query Optimizer - Query Optimization
+Query Planning
+Refered as brain of the snowflake system
+
+2. Query Processing Layer - Alternatively referred as compute layer, Compute Notes, Virtual warehouse, cloud computing
+=========================
+perform actual query processing.
+Data Loading, Unloading, Data Processing, DML etc.
+Performs MMP (Masive parallel processing)
+Refered as muscle of the snowflake system.
+
+3. Data Storage Layer
+======================
+Data is stored in Hybird Columnar Storage (data is stored in columns) - Compressed and saved as blobs in Cloud storage. More efficient in storing and 
+performing analytical data processing.
+
+Warehouse Sizes (Billed per seconds, minimum 60 seconds)
+
+XSmall 					Consists 1 server 				- consumes 1 Credit for 1 hour
+Small					consists 2 servers				- consumes 2 Credits for 1 hour
+Medium					consists 4 servers				- consumes 4 Credits for 1 hour
+Large					consists 8 servers				- consumes 8 Credits for 1 hour
+XLarge					consists 16 servers				- consumes 16 Credits for 1 hour
+2XLarge					consists 32 servers				- consumes 32 Credits for 1 hour
+3XLarge					consists 64 servers				- consumes 64 Credits for 1 hour
+4XLarge					consists 128 servers			- consumes 128 Credits for 1 hour
+5XLarge					consists 256 servers			- consumes 256 Credits for 1 hour
+
+Quiz
+
+Question 1:
+What are the three layers of Snowflake?
+Answer : Storage, Query Processing, Cloud Services.
+Question 2:
+What layer is referred to as "muscle of the system"?
+Answer : Query Processing
+Question 3:
+What layer is often referred to as "brain of the system"?
+Answer : Cloud Services Layer
+Question 4:
+We use the virtual warehouses as compute resources to process queries. True or false?
+Answer : True
+Question 5:
+A virtual warehouse of the size M has ... how many servers running to process queries?
+Answer : 4 Servers
+================================================================================================================================
+End of Topic - Snowflake Architecture
+================================================================================================================================
+
+======================
+Setting up a warehouse
+======================
+
+1. using interface
+2. using sql command
+
+Reference: https://docs.snowflake.com/en/user-guide/warehouses
+
+AccountAdmin or Security Admin can view the existing warehouses.
+Only AccountAdmin and Sysadmin or other custom roles as accountadmin/sysadmin access only can create a new warehouse.
+
+Types - Standard / Snowpark-Optimized
+Standard - used for most workloads including snowpark. 
+Snowpark-Optimized - offers a larger memory and cache. They are often used for memory intensive operations. Machine Learning an example.
+
+Multicluster warehouse is a group of warehouses of the samesize, multicluster will have the minimum and maximum number of clusters defined.
+Minimum - is when the load is less or normal
+and maximum will get scaled out when the load increases 
+Multiclustering is to support concurrent processing of queries.
+
+Multicluster scalling policy  - Standard or Economy 
+Standard(default) will spin-up the additional cluster once the active clusters are busy and there is a demand. This prevents/minimizes the queuing of workloads. And
+shutdown the cluster after 2 to 3 consecutive successful checks(performed 1 minute interval) resulting the load is less and cluster is inactive.
+Economy : Conserves credits by keeping the running clusters fully loaded than starting additional node. This may result in queries being queued and taking longer 
+to complete. This will spin-up the additional cluster when there is a demand to keep the server busy for atleast 6 minutes and shutdown the node after 5 to 6 consecutive 
+successful checks resulting the load is less and cluster is inactive. 
+
+When to go for multicluster?
+1. when Number of users increses in the system.
+2. when number of queries/workloads increases to get waiting in the queue.
+
+Query Acceleration
+Accelerate outlier queries with additional flexible compute resources. 
+Learn more - https://docs.snowflake.com/en/user-guide/query-acceleration-service
+
+How to size the warehouse?
+The best pracise is to start with XtraSmall and run various queries/load and determine the correct size.
+
+Other best pracises in setting up a warehouse.
+Setup the Autoresume parameter true and define the time limit for the parameter Autosuspend (default 10 minutes )
+
+
+Setting up a warehouse using sql command
+
+use role accountadmin; or 
+use role sysadmin;
+
+create or replace warehouse <warehouse_name>
+with
+warehouse_size = 'xsmall'
+min_cluster_count = 1
+max_cluster_count = 3
+auto_resume = True
+comment = ''
+
+example
+
+create or replace warehouse Finanace_wh
+with
+warehouse_size = 'xsmall'
+min_cluster_count = 1
+max_cluster_count = 3
+auto_resume = True
+initially_suspended = true
+comment = 'This warehouse used by finanace team for various workloads related to finance.';
+
+Warehouse FINANACE_WH successfully created.
+
+show warehouses;
+
+name       |state    |type    |size   |min_cluster_count|max_cluster_count|started_clusters|running|queued|is_default|is_current|auto_suspend|auto_resume|available|provisioning|quiescing|other|created_on             |resumed_on             |updated_on             |owner       |comment                                                                       |enable_query_acceleration|query_acceleration_max_scale_factor|resource_monitor|actives|pendings|failed|suspended|uuid    |scaling_policy|budget|owner_role_type|
+-----------+---------+--------+-------+-----------------+-----------------+----------------+-------+------+----------+----------+------------+-----------+---------+------------+---------+-----+-----------------------+-----------------------+-----------------------+------------+------------------------------------------------------------------------------+-------------------------+-----------------------------------+----------------+-------+--------+------+---------+--------+--------------+------+---------------+
+COMPUTE_WH |SUSPENDED|STANDARD|X-Small|                1|                1|               0|      0|     0|Y         |Y         |         600|true       |         |            |         |     |2024-05-15 11:09:33.284|2024-06-12 23:48:00.437|2024-06-12 23:48:00.437|ACCOUNTADMIN|                                                                              |false                    |                                  8|null            |      0|       0|     0|        1|29898244|STANDARD      |      |ROLE           |
+FINANACE_WH|SUSPENDED|STANDARD|X-Small|                1|                3|               0|      0|     0|N         |N         |         600|true       |         |            |         |     |2024-06-23 00:06:30.719|2024-06-23 00:06:30.729|2024-06-23 00:06:30.752|SYSADMIN    |This warehouse used by finanace team for various workloads related to finance.|false                    |                                  8|null            |      0|       0|     0|        1|29898268|STANDARD      |      |ROLE           |
+
+SHOW PARAMETERS for warehouse FINANACE_WH;
+key                                |value |default|level|description                                                                                                                                                                        |type  |
+-----------------------------------+------+-------+-----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------+
+MAX_CONCURRENCY_LEVEL              |8     |8      |     |Maximum number of SQL statements a warehouse cluster can execute concurrently before queuing them. Small SQL statements count as a fraction of 1.                                  |NUMBER|
+STATEMENT_QUEUED_TIMEOUT_IN_SECONDS|0     |0      |     |Timeout in seconds for queued statements: statements will automatically be canceled if they are queued on a warehouse for longer than this amount of time; disabled if set to zero.|NUMBER|
+STATEMENT_TIMEOUT_IN_SECONDS       |172800|172800 |     |Timeout in seconds for statements: statements are automatically canceled if they run for longer; if set to zero, max value (604800) is enforced.                                   |NUMBER|
+
+Assignment - 1
+==============
+
+1. To be able to create the virtual warehouse, you have to use at least the role SYSADMIN (or SECURITYADMIN or ACCOUNTADMIN).
+
+USE ROLE SYSADMIN;
+
+
+2. Set up a virtual warehouse using SQL command:
+
+CREATE WAREHOUSE EXERCISE_WH
+WAREHOUSE_SIZE = XSMALL
+AUTO_SUSPEND = 600  -- automatically suspend the virtual warehouse after 10 minutes of not being used
+AUTO_RESUME = TRUE 
+COMMENT = 'This is a virtual warehouse of size X-SMALL that can be used to process queries.';
+
+
+3. Drop the virtual warehouse
+
+DROP WAREHOUSE EXERCISE_WH;
+
+
+Questions for this assignment
+After how many minutes will this virtual warehouse be suspended if it is not being used?
+Answer 10 minutes
+
+================================================================================================================================
+End of Topic - Setting up a warehouse
+================================================================================================================================
+
+=================
+Manage warehouses
+=================
+To change the warehouse we use alter command
+
+alter warehouse <warehouse_name>
+set parameter_name = value
+
+alter warehouse Finanace_wh
+set 
+max_cluster_count = 1,  //changing the warehouse from multicluse warehouse to non-multicluster warehouse
+auto_suspend = 120,      //suspend the server when it is inactive for 120 seconds
+warehouse_size = 'small' //scale up the warehouse from xtrasmall to small.
+
+statement executed successfully.
+
+show WAREHOUSES LIKE 'Finanace_wh';
+
+name       |state    |type    |size |min_cluster_count|max_cluster_count|started_clusters|running|queued|is_default|is_current|auto_suspend|auto_resume|available|provisioning|quiescing|other|created_on             |resumed_on             |updated_on             |owner   |comment                                                                       |enable_query_acceleration|query_acceleration_max_scale_factor|resource_monitor|actives|pendings|failed|suspended|uuid    |scaling_policy|budget|owner_role_type|
+-----------+---------+--------+-----+-----------------+-----------------+----------------+-------+------+----------+----------+------------+-----------+---------+------------+---------+-----+-----------------------+-----------------------+-----------------------+--------+------------------------------------------------------------------------------+-------------------------+-----------------------------------+----------------+-------+--------+------+---------+--------+--------------+------+---------------+
+FINANACE_WH|SUSPENDED|STANDARD|Small|                1|                1|               0|      0|     0|N         |N         |         120|true       |         |            |         |     |2024-06-23 00:06:30.719|2024-06-23 00:06:30.729|2024-06-23 00:21:52.742|SYSADMIN|This warehouse used by finanace team for various workloads related to finance.|false                    |                                  8|null            |      0|       0|     0|        2|29898268|STANDARD      |      |ROLE           |
+
+Drop the warehouse
+==================
+Only the owner of the warehouse or accountadmin/sysadmin can drop the warehouse.
+drop warehouse <warehouse_name>;
+
+drop warehouse Finanace_wh;
+
+================================================================================================================================
+End of Topic - Managing warehouses
+================================================================================================================================
+
+==============================
+Exploring Databases and tables
+==============================
+
+USE ROLE sysadmin;
+
+//creating database
+
+CREATE DATABASE OUR_FIRST_DB;
+
+//Creating the table
+
+CREATE TABLE "OUR_FIRST_DB"."PUBLIC"."LOAN_PAYMENT" (
+  "Loan_ID" STRING,
+  "loan_status" STRING,
+  "Principal" STRING,
+  "terms" STRING,
+  "effective_date" STRING,
+  "due_date" STRING,
+  "paid_off_time" STRING,
+  "past_due_days" STRING,
+  "age" STRING,
+  "education" STRING,
+  "Gender" STRING);
+  
+//Check that table is empy
+USE DATABASE OUR_FIRST_DB;
+
+SELECT count(1) rec_count FROM OUR_FIRST_DB.PUBLIC.LOAN_PAYMENT;
+
+REC_COUNT|
+---------+
+        0|
+		
+//Loading the data from S3 bucket
+  
+COPY INTO LOAN_PAYMENT
+   FROM s3://bucketsnowflakes3/Loan_payments_data.csv
+   file_format = (type = csv 
+                  field_delimiter = ',' 
+                  skip_header=1);
+				  
+ //Loading the data from S3 bucket
+  
+Updated Rows	500
+Query	 //Loading the data from S3 bucket
+	 COPY INTO LOAN_PAYMENT
+	    FROM s3://bucketsnowflakes3/Loan_payments_data.csv
+	    file_format = (type = csv 
+	                   field_delimiter = ',' 
+	                   skip_header=1)
+Start time	Sun Jun 23 00:55:29 AEST 2024
+Finish time	Sun Jun 23 00:55:32 AEST 2024
+
+SELECT count(1) rec_count  FROM OUR_FIRST_DB.PUBLIC.LOAN_PAYMENT;
+REC_COUNT|
+---------+
+      500|
+	  
+Assignment 2 - Load Data
+========================
+
+
+1. Create a database called EXERCISE_DB
+
+use role sysadmin;
+
+create database if not exists exercise_db;
+
+
+2. Create a table called CUSTOMERS
+
+Set the column names and data types as follows:
+
+ID INT,
+
+first_name varchar,
+
+last_name varchar,
+
+email varchar,
+
+age int,
+
+city varchar
+
+use exercise_db;
+create table if not exists customers(
+ID INT,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar);
+
+
+3. Load the data in the table
+
+The data is available under: s3://snowflake-assignments-mc/gettingstarted/customers.csv.
+
+Data type: CSV - delimited by ',' (comma)
+
+Header is in the first line.
+
+copy into customers
+from s3://snowflake-assignments-mc/gettingstarted/customers.csv
+file_format = (type = csv
+               field_delimiter = ','
+			   skip_header = 1);
+			   
+file	status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflake-assignments-mc/gettingstarted/customers.csv	LOADED	1000	1000	1	0				
+
+4. Query from that table. How many rows are now in the table?
+
+select count(1) row_count from exercise_db.public.customers;
+
+REC_COUNT|
+---------+
+     1000|
+
+Questions for this assignment
+How many rows are within the table after the load?
+Answer: 1000 rows
+
+================================================================================================================================
+End of Topic - Exploring Databases and Tables
+================================================================================================================================
+
+==================
+Snowflake editions
+==================
+1. Standard 
+2. Enterprises = Standard + additional features
+3. Business Critical = Enterprises + additional features
+4. Virtual Private =  Business Critical + additional features - This uses dedicate environment and dedicated features 
+
+
+Standard edition features
+=========================
+Time travel is 1 day for permanent tables.
+Disaster Recovery or Fail safe is 7 days for permanent tables.
+Network policies
+secure data share
+Federated Athentication and SSO
+Premier support 24/7
+
+Enterprises edition features
+============================
+All Standard edition features +
+Time travel upto 90 days
+Materialised views
+Search Optimization
+column level security
+24 hours early access to weekly new releases.
+
+Business Critical edition features
+==================================
+All Enterprises edition features +
+Customer managed encryption
+support for data specific regulations
+Seamless database recovery failover/failback 
+
+Virtual Private edition features
+================================
+All Business Critical edition features +
+Dedicated virtual servers and
+completely separate snowflake environment.
+
+================================================================================================================================
+End of Topic - Snowflake editions
+================================================================================================================================
+
+==================
+Roles in Snowflake
+==================
+
+SYSTEM DEFINED Roles, These roles can't be dropped.
+ 
+ORGADMIN    	---> manages actions on Organization level, create accounts, view all accounts , view account usage information
+ACCOUNTADMIN  	---> Top level in the hierarchy contains lots of previlages, monitors the account,
+SECURITYADMIN  	---> create and monitors and manage security part.
+USERADMIN     	---> creates and manages users and roles and previlages
+SYSADMIN      	---> creates and manages warehouses, databases, schemas, tables, views, and other db objects and manage the objects, grant previlages	on these objects to other roles 
+PUBLIC       	---> default role assgined to every users once created.
+
+CUSTOM Roles
+
+Assgn the custom rolse to SYSADMIN / Security Admin based on the actions to be carried out by these custom roles. Otherwise these roles cannot be managed by Security Admin or Sysadmin roles.
+
+Quiz 2
+======
+Question 1:
+What are the different Snowflake editions?
+Answer : Standard, Enterprises, Business Critical and Virtual Private.
+Question 2:
+If we require the highest data protection & security. Which one would we rather choose?
+Answer : Virtual Private 
+Question 3:
+What is mainly relevant in pricing/costs of snowflake?
+Answer: Storage and Compute resources
+Question 4:
+What role is the "top-level" role with most privileges?
+Answer : AccountAdmin
+==================================================
+
+================================================================================================================================
+End of Topic - Roles in Snowflake
+================================================================================================================================
+
+============
+Loading Data
+============
+Types of loading
+
+a. Bulk loading
+	Most frequent method
+	Uses warehouses
+	Loading from stages
+	COPY command
+	Transformations possible 	
+
+b. Continuous loading
+	Designed to load small volumes of data
+	Automatically once they are added to stages
+	Lates results for analysis
+	Snowpipe (Serverless feature)
+
+Types of Stages
+a. Internal stages (Local storage provided by Snowflake)
+	Named Stages
+	User Stages
+	Table Stages
+
+External Stages
+	External storages (GCP, Azure Blob storge or Amazson S3)
+	Requires a data integration object (for secured data loading)
+	Requires a Stage URLs
+
+Creating an external stage
+==========================
+
+use role sysadmin;
+
+CREATE OR REPLACE DATABASE MANAGE_DB;
+
+CREATE OR REPLACE SCHEMA external_stages;
+
+// Publicly accessible staging area 
+CREATE OR REPLACE STAGE MANAGE_DB.external_stages.aws_stage
+    url='s3://bucketsnowflakes3';
+	
+//SHOW Stage
+
+show stages;
+created_on             |name     |database_name|schema_name    |url                   |has_credentials|has_encryption_key|owner   |comment|region   |type    |cloud|notification_channel|storage_integration|endpoint|owner_role_type|directory_enabled|
+-----------------------+---------+-------------+---------------+----------------------+---------------+------------------+--------+-------+---------+--------+-----+--------------------+-------------------+--------+---------------+-----------------+
+2024-06-24 17:49:01.987|AWS_STAGE|MANAGE_DB    |EXTERNAL_STAGES|s3://bucketsnowflakes3|N              |N                 |SYSADMIN|       |us-east-1|EXTERNAL|AWS  |                    |                   |        |ROLE           |N                |
+
+// List files in stage
+
+LIST @aws_stage;
+name                                         |size |md5                             |last_modified               |
+---------------------------------------------+-----+--------------------------------+----------------------------+
+s3://bucketsnowflakes3/Loan_payments_data.csv|44417|f354864a37b2dbec495190058d427285|Mon, 5 Apr 2021 12:28:12 GMT|
+s3://bucketsnowflakes3/OrderDetails.csv      |54600|1a1c4a47a8e8e43ecef5bf8a46ee4017|Tue, 6 Apr 2021 16:42:56 GMT|
+s3://bucketsnowflakes3/sampledata.csv        |  158|462259b257e0238ff9f9fb08313c2637|Tue, 6 Apr 2021 16:56:32 GMT|
+
+//create table Orders
+
+CREATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+QUANTITY INT,
+CATEGORY VARCHAR(30),
+SUBCATEGORY VARCHAR(30));
+
+//Load data using copy into <table> command
+reference : https://docs.snowflake.com/en/sql-reference/sql/copy-into-table
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS
+    FROM @aws_stage
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+	
+select count(1) from OUR_FIRST_DB.PUBLIC.ORDERS;
+
+COUNT(1)|
+--------+
+    1500|
+	
+// Copy command with fully qualified stage object
+
+truncate table OUR_FIRST_DB.PUBLIC.ORDERS;
+
+//This will fail as there are multiple files with different columns there in stage and in the below copy command file_name or patter is not specified
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS
+    FROM @MANAGE_DB.external_stages.aws_stage
+    file_format= (type = csv field_delimiter=',' skip_header=1);
+	
+SQL Error [100080] [22000]: Number of columns in file (2) does not match that of the corresponding table (6), 
+    use file format option error_on_column_count_mismatch=false to ignore this error
+  File 'sampledata.csv', line 3, character 1
+  Row 1 starts at line 2, column "ORDERS"["AMOUNT":2]
+  If you would like to continue loading when an error is encountered, use other values such as 'SKIP_FILE' 
+  or 'CONTINUE' for the ON_ERROR option. For more information on loading options, please run 'info loading_data' in a SQL client.
+  
+now load the specific file "OrderDetails.csv", we can specifiy multiple files also in a comma separated list
+  
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS
+    FROM @MANAGE_DB.external_stages.aws_stage
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails.csv');
+    
+select count(1) from OUR_FIRST_DB.PUBLIC.ORDERS;
+
+COUNT(1)|
+--------+
+    1500|
+
+Run the copy command once again and check the count, there won't be any change. 
+Since the file "OrderDetails.csv" is already loaded snowflake will not process the file again.
+
+now truncate the table again and reload the same file using patter keyword, when the table is truncated, previous load related metadata is removed as a result 
+snowflake allow to load the data from the same file again.
+
+truncate table OUR_FIRST_DB.PUBLIC.ORDERS;
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS
+    FROM @MANAGE_DB.external_stages.aws_stage
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+    
+select count(1) from OUR_FIRST_DB.PUBLIC.ORDERS;
+
+COUNT(1)|
+--------+
+    1500|
+	
+How to query the data directly from the external stage files without loading to tables? or before loading to tables?
+
+step 1 - create a file format
+step 2 - query the data using the fileformat.
+
+CREATE OR REPLACE FILE FORMAT my_csv_format_1
+TYPE = 'csv' FIELD_DELIMITER = ',' skip_header = 1;
+
+select
+	$1::string AS orderid,
+	$2::int AS amount,
+	$3::int AS profit,
+	$4::int AS quantity,
+	$5::STRING AS category ,
+	$6::STRING AS subcategory
+from @MANAGE_DB.external_stages.aws_stage 
+(file_format => my_csv_format_1, pattern=>'.*Order.*')
+limit 10;
+
+ORDERID|AMOUNT|PROFIT|QUANTITY|CATEGORY   |SUBCATEGORY     |
+-------+------+------+--------+-----------+----------------+
+B-25601|  1275| -1148|       7|Furniture  |Bookcases       |
+B-25601|    66|   -12|       5|Clothing   |Stole           |
+B-25601|     8|    -2|       3|Clothing   |Hankerchief     |
+B-25601|    80|   -56|       4|Electronics|Electronic Games|
+B-25602|   168|  -111|       2|Electronics|Phones          |
+B-25602|   424|  -272|       5|Electronics|Phones          |
+B-25602|  2617|  1151|       4|Electronics|Phones          |
+B-25602|   561|   212|       3|Clothing   |Saree           |
+B-25602|   119|    -5|       8|Clothing   |Saree           |
+B-25603|  1355|   -60|       5|Clothing   |Trousers        |
+
+we can perform transformations on the data now.
+
+select
+	$1::string AS orderid,
+	$2::int AS amount,
+	case when cast($3 AS int) <0 then 'Non-Profitable' else 'Profitable' end AS Opinion,
+	$4::int AS quantity,
+	$5::STRING AS category ,
+	$6::STRING AS subcategory
+from @MANAGE_DB.external_stages.aws_stage 
+(file_format => my_csv_format_1, pattern=>'.*Order.*')
+limit 10;
+ORDERID|AMOUNT|OPINION       |QUANTITY|CATEGORY   |SUBCATEGORY     |
+-------+------+--------------+--------+-----------+----------------+
+B-25601|  1275|Non-Profitable|       7|Furniture  |Bookcases       |
+B-25601|    66|Non-Profitable|       5|Clothing   |Stole           |
+B-25601|     8|Non-Profitable|       3|Clothing   |Hankerchief     |
+B-25601|    80|Non-Profitable|       4|Electronics|Electronic Games|
+B-25602|   168|Non-Profitable|       2|Electronics|Phones          |
+B-25602|   424|Non-Profitable|       5|Electronics|Phones          |
+B-25602|  2617|Profitable    |       4|Electronics|Phones          |
+B-25602|   561|Profitable    |       3|Clothing   |Saree           |
+B-25602|   119|Non-Profitable|       8|Clothing   |Saree           |
+B-25603|  1355|Non-Profitable|       5|Clothing   |Trousers        |
+
+
+//table has 4 columns but we are going to populate only two columns
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT,
+    PROFIT INT,
+    PROFITABLE_FLAG VARCHAR(30)  
+    );
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX (ORDER_ID,PROFIT)
+    FROM (select 
+            s.$1,
+            s.$3
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+	
+SELECT *
+FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX
+LIMIT 10;
+	
+ORDER_ID|AMOUNT|PROFIT|PROFITABLE_FLAG|
+--------+------+------+---------------+
+B-25601 |      | -1148|               |
+B-25601 |      |   -12|               |
+B-25601 |      |    -2|               |
+B-25601 |      |   -56|               |
+B-25602 |      |  -111|               |
+B-25602 |      |  -272|               |
+B-25602 |      |  1151|               |
+B-25602 |      |   212|               |
+B-25602 |      |    -5|               |
+B-25603 |      |   -60|               |
+
+
+//Example 5 - Table Auto increment
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID number autoincrement start 1 increment 1,
+    AMOUNT INT,
+    PROFIT INT,
+    PROFITABLE_FLAG VARCHAR(30)  
+    );
+	
+
+//Example 5 - Auto increment ID
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX (PROFIT,AMOUNT)
+    FROM (select 
+            s.$2,
+            s.$3
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+	
+file	status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes3/OrderDetails.csv	LOADED	1500	1500	1	0				
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX WHERE ORDER_ID > 15
+LIMIT 10;
+
+ORDER_ID|AMOUNT|PROFIT|PROFITABLE_FLAG|
+--------+------+------+---------------+
+      16|     1|    12|               |
+      17|    18|    38|               |
+      18|    17|    65|               |
+      19|     5|   157|               |
+      20|     0|    75|               |
+      21|     4|    87|               |
+      22|    15|    50|               |
+      23|   864|  1364|               |
+      24|     0|   476|               |
+      25|    23|   257|               |
+=======================================================================================================================
+===========
+CopyOptions
+===========
+
+Copy Command Syntax
+COPY INTO
+	<table_Name>
+FROM
+	Internal/externalStage
+FILES = ('<file_ name>',,'<file_ name2>')
+FILE_FORMAT = <file_format_name>
+copyOptions
+
+CopyOptions
+===========
+
+a. ON_ERROR = CONTINUE
+b. VALIDATION_MODE = RETURN_n_ROWS | RETURN_ERRORS (Validate the data files instead of loading them)
+
+RETURN_n_ROWS (e. RETURN_10_ROWS) 
+=============
+	Validates & returns the specified number of rows;
+	fails at the first error encountered
+RETURN_ERRORS
+=============
+	Returns all errors in Copy Command
+
+c. SIZE_LIMIT = num
+Specify maximum size (in bytes) of data loaded in that command (at least one file)
+When the threshold is exceeded, the COPY operation stops loading
+Threshold for each file
+DEFAULT: null (no size limit)
+
+d. RETURN_FAILED_ONLY = TRUE | FALSE
+Specifies whether to return only files that have failed to load in the statement result
+DEFAULT = FALSE
+
+e. TRUNCATECOLUMNS = TRUE | FALSE
+Specifies whether to truncate text strings that exceed the target column length
+TRUE = strings are automatically truncated to the target column length
+FALSE = COPY produces an error if a loaded string exceeds the target column length
+DEFAULT = FALSE
+
+f. FORCE = TRUE | FALSE
+Specifies to load all files, regardless of whether they’ve been loaded previously and have not changed since they were loaded 
+Note: that this option reloads files, potentially duplicating data in a table.
+
+g. PURGE = TRUE | FALSE
+specifies whether to remove the data files from the stage automatically after the data is loaded successfully
+DEFAULT: FALSE
+
+// Create new stage
+CREATE OR REPLACE STAGE MANAGE_DB.external_stages.aws_stage_errorex
+url='s3://bucketsnowflakes4'
+
+// List files in stage
+LIST @MANAGE_DB.external_stages.aws_stage_errorex;
+
+name                                          |size |md5                             |last_modified               |
+----------------------------------------------+-----+--------------------------------+----------------------------+
+s3://bucketsnowflakes4/OrderDetails_error.csv |54622|99bb5d5b87e74256ca04c91359204dba|Wed, 7 Apr 2021 09:26:50 GMT|
+s3://bucketsnowflakes4/OrderDetails_error2.csv|10512|02dd466971414c7394772d108397374a|Wed, 7 Apr 2021 09:58:53 GMT|
+
+These files contains some invalid data
+
+// Create example table
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+QUANTITY INT,
+CATEGORY VARCHAR(30),
+SUBCATEGORY VARCHAR(30));
+
+//Demonstrating error message, the below copy command will fail due to invalid data`
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+FROM @MANAGE_DB.external_stages.aws_stage_errorex
+file_format= (type = csv field_delimiter=',' skip_header=1)
+files = ('OrderDetails_error.csv');
+
+SQL Error [100038] [22018]: Numeric value 'one thousand' is not recognized
+  File 'OrderDetails_error.csv', line 2, character 14
+  Row 1, column "ORDERS_EX"["PROFIT":3]
+  If you would like to continue loading when an error is encountered, use other values such as 'SKIP_FILE' or 'CONTINUE' for the ON_ERROR option. 
+  For more information on loading options, please run 'info loading_data' in a SQL client
+
+
+// Validating table is empty    
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;    
+
+
+// Error handling using the ON_ERROR option
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+FROM @MANAGE_DB.external_stages.aws_stage_errorex
+file_format= (type = csv field_delimiter=',' skip_header=1)
+files = ('OrderDetails_error.csv')
+ON_ERROR = 'CONTINUE';
+
+Updated Rows	1498
+
+// Validating results and truncating table 
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX limit 10;
+ORDER_ID|AMOUNT|PROFIT|QUANTITY|CATEGORY   |SUBCATEGORY     |
+--------+------+------+--------+-----------+----------------+
+B-25601 |     8|    -2|       3|Clothing   |Hankerchief     |
+B-25601 |    80|   -56|       4|Electronics|Electronic Games|
+B-25602 |   168|  -111|       2|Electronics|Phones          |
+B-25602 |   424|  -272|       5|Electronics|Phones          |
+B-25602 |  2617|  1151|       4|Electronics|Phones          |
+B-25602 |   561|   212|       3|Clothing   |Saree           |
+B-25602 |   119|    -5|       8|Clothing   |Saree           |
+B-25603 |  1355|   -60|       5|Clothing   |Trousers        |
+B-25603 |    24|   -30|       1|Furniture  |Chairs          |
+B-25603 |   193|  -166|       3|Clothing   |Saree           |
+
+SELECT COUNT(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+    1498|
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+// Error handling using the ON_ERROR option = ABORT_STATEMENT (default), the statement will get aborted even when ON_ERROR is skiped in the copy command.
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = 'ABORT_STATEMENT';
+	
+SQL Error [100038] [22018]: Numeric value 'one thousand' is not recognized
+  File 'OrderDetails_error.csv', line 2, character 14
+  Row 1, column "ORDERS_EX"["PROFIT":3]
+  If you would like to continue loading when an error is encountered, use other values such as 'SKIP_FILE' or 'CONTINUE' for the ON_ERROR option. 
+  For more information on loading options, please run 'info loading_data' in a SQL client.
+
+
+  // Validating results and truncating table 
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+SELECT COUNT(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+       0|
+
+SKIP_FILE will ignore the file which has invalid data if any.
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+// Error handling using the ON_ERROR option = SKIP_FILE
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = 'SKIP_FILE';
+	
+file											status		rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes4/OrderDetails_error2.csv	LOADED		285			285			1			0				
+s3://bucketsnowflakes4/OrderDetails_error.csv	LOAD_FAILED	1500		0			1			2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS_EX"["PROFIT":3]
+  
+// Validating results and truncating table 
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+SELECT COUNT(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+     285|
+
+Continue Vs SKIP_FILE
+Continue will ignore the invalid records and proceed with remaining rows.
+Skip_file will ignore the entire file when a invalid record found.
+
+SKIP_FILE_<number>
+==================
+This options allow us to define the maximum allowed invalid records for a file, records will get ignored and will get loaded until it reaches the allowed limit, 
+once the error record count reached the maximum error specified, then it will ignore the entire file.
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;    
+
+// Error handling using the ON_ERROR option = SKIP_FILE_<number>
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = 'SKIP_FILE_2';
+    
+file											status		rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes4/OrderDetails_error2.csv	LOADED		285			285			2			0				
+s3://bucketsnowflakes4/OrderDetails_error.csv	LOAD_FAILED	1500		0			2			2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS_EX"["PROFIT":3]
+
+in the above example the maximum error limit is 2 once the limit is reached, system will ignore the file.
+    
+// Validating results and truncating table 
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+SELECT COUNT(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+     285|
+
+retry the same with error limit as 3.
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;    
+
+// Error handling using the ON_ERROR option = SKIP_FILE_<number>
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = 'SKIP_FILE_3';
+    
+file											status				rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes4/OrderDetails_error2.csv	LOADED				285			285			3			0				
+s3://bucketsnowflakes4/OrderDetails_error.csv	PARTIALLY_LOADED	1500		1498		3			2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS_EX"["PROFIT":3]
+
+in the above example the maximum error limit is 3 but the no of errors in the file is 2 so, it ignored the errored records and processed the remaining records 
+in the file.
+    
+// Validating results and truncating table 
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+SELECT COUNT(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+    1783|
+
+SKIP_FILE_N%
+This option will allow us to define the allowable error records in percentage, the functionality is same as skip_file_number, only difference is it will dynamically
+find the number of records can be igmored for each file on the fly based on the total number of records by applying the % on the total record count.
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;    
+    
+// Error handling using the ON_ERROR option = SKIP_FILE_<number>
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = 'SKIP_FILE_0.5%'; 
+  
+file											status				rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes4/OrderDetails_error2.csv	LOADED				285			285	1		0				
+s3://bucketsnowflakes4/OrderDetails_error.csv	PARTIALLY_LOADED	1500		1498		7			2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS_EX"["PROFIT":3]
+
+  
+SELECT count(*) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(*)|
+--------+
+    1783|
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT,
+    PROFIT INT,
+    QUANTITY INT,
+    CATEGORY VARCHAR(30),
+    SUBCATEGORY VARCHAR(30));
+	
+SIZE_LIMIT
+==========
+
+SIZE_LIMIT (> 0) that specifies the maximum size (in bytes) of data to be loaded for a given COPY statement. When the threshold is exceeded, the COPY operation 
+discontinues loading files. This option is commonly used to load a common group of files using multiple COPY statements. For each statement, the data load 
+continues until the specified SIZE_LIMIT is exceeded, before moving on to the next statement.
+
+For example, suppose a set of files in a stage path were each 10 MB in size. If multiple COPY statements set SIZE_LIMIT to 25000000 (25 MB), each would 
+load 3 files. That is, each COPY operation would discontinue after the SIZE_LIMIT threshold was exceeded.
+
+Note that at least one file is loaded regardless of the value specified for SIZE_LIMIT unless there is no file to be loaded.
+
+LIST @MANAGE_DB.external_stages.aws_stage_errorex;
+name											size	md5									last_modified
+s3://bucketsnowflakes4/OrderDetails_error.csv	54622	99bb5d5b87e74256ca04c91359204dba	Wed, 7 Apr 2021 09:26:50 GMT
+s3://bucketsnowflakes4/OrderDetails_error2.csv	10512	02dd466971414c7394772d108397374a	Wed, 7 Apr 2021 09:58:53 GMT
+
+TRUNCATE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX;  
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files = ('OrderDetails_error.csv','OrderDetails_error2.csv')
+    ON_ERROR = SKIP_FILE_3 
+    SIZE_LIMIT = 30;
+
+file											status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://bucketsnowflakes4/OrderDetails_error2.csv	LOADED	285			285			3			0				
+
+File Format Object
+==================
+
+// Creating schema to keep things organized
+CREATE OR REPLACE SCHEMA MANAGE_DB.file_formats;
+
+// Creating file format object
+CREATE OR REPLACE file format MANAGE_DB.file_formats.my_file_format;
+
+// See properties of file format object
+DESC file format MANAGE_DB.file_formats.my_file_format;
+
+property                      |property_type|property_value|property_default|
+------------------------------+-------------+--------------+----------------+
+TYPE                          |String       |CSV           |CSV             |
+RECORD_DELIMITER              |String       |\n            |\n              |
+FIELD_DELIMITER               |String       |,             |,               |
+FILE_EXTENSION                |String       |              |                |
+SKIP_HEADER                   |Integer      |0             |0               |
+PARSE_HEADER                  |Boolean      |false         |false           |
+DATE_FORMAT                   |String       |AUTO          |AUTO            |
+TIME_FORMAT                   |String       |AUTO          |AUTO            |
+TIMESTAMP_FORMAT              |String       |AUTO          |AUTO            |
+BINARY_FORMAT                 |String       |HEX           |HEX             |
+ESCAPE                        |String       |NONE          |NONE            |
+ESCAPE_UNENCLOSED_FIELD       |String       |\\            |\\              |
+TRIM_SPACE                    |Boolean      |false         |false           |
+FIELD_OPTIONALLY_ENCLOSED_BY  |String       |NONE          |NONE            |
+NULL_IF                       |List         |[\\N]         |[\\N]           |
+COMPRESSION                   |String       |AUTO          |AUTO            |
+ERROR_ON_COLUMN_COUNT_MISMATCH|Boolean      |true          |true            |
+VALIDATE_UTF8                 |Boolean      |true          |true            |
+SKIP_BLANK_LINES              |Boolean      |false         |false           |
+REPLACE_INVALID_CHARACTERS    |Boolean      |false         |false           |
+EMPTY_FIELD_AS_NULL           |Boolean      |true          |true            |
+SKIP_BYTE_ORDER_MARK          |Boolean      |true          |true            |
+ENCODING                      |String       |UTF8          |UTF8            |
+
+Review the above properties carefully, while creating the file format nothing was specified except the file format name, hence all the properties are 
+populated with default values. 
+
+So, the default file format type is CSV, default field delimiter is ',' and skip_hear is 0.
+
+// Using file format object in Copy command, this will fail to load data as skip header is 0(no header info in the file) it consider the 1 line as data but line 1 contains 
+column header and the entire row is string.
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (FORMAT_NAME=MANAGE_DB.file_formats.my_file_format)
+    files = ('OrderDetails_error.csv')
+    ON_ERROR = 'SKIP_FILE_3'; 
+
+select count(1) from OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+COUNT(1)|
+--------+
+       0|
+
+// Altering file format object
+ALTER file format MANAGE_DB.file_formats.my_file_format
+    SET SKIP_HEADER = 1;
+	
+// See properties of file format object
+DESC file format MANAGE_DB.file_formats.my_file_format;
+property                      |property_type|property_value|property_default|
+------------------------------+-------------+--------------+----------------+
+TYPE                          |String       |CSV           |CSV             |
+RECORD_DELIMITER              |String       |\n            |\n              |
+FIELD_DELIMITER               |String       |,             |,               |
+FILE_EXTENSION                |String       |              |                |
+SKIP_HEADER                   |Integer      |1             |0               |
+PARSE_HEADER                  |Boolean      |false         |false           |
+DATE_FORMAT                   |String       |AUTO          |AUTO            |
+TIME_FORMAT                   |String       |AUTO          |AUTO            |
+TIMESTAMP_FORMAT              |String       |AUTO          |AUTO            |
+BINARY_FORMAT                 |String       |HEX           |HEX             |
+ESCAPE                        |String       |NONE          |NONE            |
+ESCAPE_UNENCLOSED_FIELD       |String       |\\            |\\              |
+TRIM_SPACE                    |Boolean      |false         |false           |
+FIELD_OPTIONALLY_ENCLOSED_BY  |String       |NONE          |NONE            |
+NULL_IF                       |List         |[\\N]         |[\\N]           |
+COMPRESSION                   |String       |AUTO          |AUTO            |
+ERROR_ON_COLUMN_COUNT_MISMATCH|Boolean      |true          |true            |
+VALIDATE_UTF8                 |Boolean      |true          |true            |
+SKIP_BLANK_LINES              |Boolean      |false         |false           |
+REPLACE_INVALID_CHARACTERS    |Boolean      |false         |false           |
+EMPTY_FIELD_AS_NULL           |Boolean      |true          |true            |
+SKIP_BYTE_ORDER_MARK          |Boolean      |true          |true            |
+ENCODING                      |String       |UTF8          |UTF8            |
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (FORMAT_NAME=MANAGE_DB.file_formats.my_file_format)
+    files = ('OrderDetails_error.csv')
+    ON_ERROR = 'SKIP_FILE_3'; 
+
+COUNT(1)|
+--------+
+    1498|
+
+// Defining properties on creation of file format object   
+CREATE OR REPLACE file format MANAGE_DB.file_formats.my_file_format
+    TYPE=JSON,
+    TIME_FORMAT=AUTO;    
+    
+// See properties of file format object    
+DESC file format MANAGE_DB.file_formats.my_file_format;   
+
+property                  |property_type|property_value|property_default|
+--------------------------+-------------+--------------+----------------+
+TYPE                      |String       |JSON          |CSV             |
+FILE_EXTENSION            |String       |              |                |
+DATE_FORMAT               |String       |AUTO          |AUTO            |
+TIME_FORMAT               |String       |AUTO          |AUTO            |
+TIMESTAMP_FORMAT          |String       |AUTO          |AUTO            |
+BINARY_FORMAT             |String       |HEX           |HEX             |
+TRIM_SPACE                |Boolean      |false         |false           |
+NULL_IF                   |List         |[]            |[\\N]           |
+COMPRESSION               |String       |AUTO          |AUTO            |
+ENABLE_OCTAL              |Boolean      |false         |false           |
+ALLOW_DUPLICATE           |Boolean      |false         |false           |
+STRIP_OUTER_ARRAY         |Boolean      |false         |false           |
+STRIP_NULL_VALUES         |Boolean      |false         |false           |
+IGNORE_UTF8_ERRORS        |Boolean      |false         |false           |
+REPLACE_INVALID_CHARACTERS|Boolean      |false         |false           |
+SKIP_BYTE_ORDER_MARK      |Boolean      |true          |true            |
+
+truncate table OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+  
+// Using file format object in Copy command , this will fail to load data as per the file format it expect the data in json format, but the files are in CSV format.     
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format= (FORMAT_NAME=MANAGE_DB.file_formats.my_file_format)
+    files = ('OrderDetails_error.csv')
+    ON_ERROR = 'SKIP_FILE_3'; 
+	
+SQL Error [2019] [0A000]: SQL compilation error:
+JSON file format can produce one and only one column of type variant, object, or array. Load data into separate columns using the MATCH_BY_COLUMN_NAME 
+copy option or copy with transformation.
+
+
+// Altering the type of a file format is not possible, the below will fail
+ALTER file format MANAGE_DB.file_formats.my_file_format
+SET TYPE = CSV;
+
+SQL Error [2134] [42601]: SQL compilation error:
+File format type cannot be changed.
+
+
+// Recreate file format (default = CSV)
+CREATE OR REPLACE file format MANAGE_DB.file_formats.my_file_format
+
+
+// See properties of file format object    
+DESC file format MANAGE_DB.file_formats.my_file_format;   
+
+property                      |property_type|property_value|property_default|
+------------------------------+-------------+--------------+----------------+
+TYPE                          |String       |CSV           |CSV             |
+RECORD_DELIMITER              |String       |\n            |\n              |
+FIELD_DELIMITER               |String       |,             |,               |
+FILE_EXTENSION                |String       |              |                |
+SKIP_HEADER                   |Integer      |0             |0               |
+PARSE_HEADER                  |Boolean      |false         |false           |
+DATE_FORMAT                   |String       |AUTO          |AUTO            |
+TIME_FORMAT                   |String       |AUTO          |AUTO            |
+TIMESTAMP_FORMAT              |String       |AUTO          |AUTO            |
+BINARY_FORMAT                 |String       |HEX           |HEX             |
+ESCAPE                        |String       |NONE          |NONE            |
+ESCAPE_UNENCLOSED_FIELD       |String       |\\            |\\              |
+TRIM_SPACE                    |Boolean      |false         |false           |
+FIELD_OPTIONALLY_ENCLOSED_BY  |String       |NONE          |NONE            |
+NULL_IF                       |List         |[\\N]         |[\\N]           |
+COMPRESSION                   |String       |AUTO          |AUTO            |
+ERROR_ON_COLUMN_COUNT_MISMATCH|Boolean      |true          |true            |
+VALIDATE_UTF8                 |Boolean      |true          |true            |
+SKIP_BLANK_LINES              |Boolean      |false         |false           |
+REPLACE_INVALID_CHARACTERS    |Boolean      |false         |false           |
+EMPTY_FIELD_AS_NULL           |Boolean      |true          |true            |
+SKIP_BYTE_ORDER_MARK          |Boolean      |true          |true            |
+ENCODING                      |String       |UTF8          |UTF8            |
+
+// Truncate table
+TRUNCATE table OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+we can override the property values in the copy into statement. As per the above properties skip header is 0, however if we want to specify it as 1 while loading 
+it is possible. Check the below copy into command file_format option, compare it with the previous copy into statements.
+
+
+// Overwriting properties of file format object      
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM  @MANAGE_DB.external_stages.aws_stage_errorex
+    file_format = (FORMAT_NAME= MANAGE_DB.file_formats.my_file_format  field_delimiter = ',' skip_header=1 )
+    files = ('OrderDetails_error.csv')
+    ON_ERROR = 'SKIP_FILE_3'; 
+	
+SELECT count(1) FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+COUNT(1)|
+--------+
+    1498|
+
+//describe the stage object to see it's parameters
+DESC STAGE MANAGE_DB.external_stages.aws_stage_errorex;
+
+parent_property   |property                      |property_type|property_value            |property_default|
+------------------+------------------------------+-------------+--------------------------+----------------+
+STAGE_FILE_FORMAT |TYPE                          |String       |CSV                       |CSV             |
+STAGE_FILE_FORMAT |RECORD_DELIMITER              |String       |\n                        |\n              |
+STAGE_FILE_FORMAT |FIELD_DELIMITER               |String       |,                         |,               |
+STAGE_FILE_FORMAT |FILE_EXTENSION                |String       |                          |                |
+STAGE_FILE_FORMAT |SKIP_HEADER                   |Integer      |0                         |0               |
+STAGE_FILE_FORMAT |PARSE_HEADER                  |Boolean      |false                     |false           |
+STAGE_FILE_FORMAT |DATE_FORMAT                   |String       |AUTO                      |AUTO            |
+STAGE_FILE_FORMAT |TIME_FORMAT                   |String       |AUTO                      |AUTO            |
+STAGE_FILE_FORMAT |TIMESTAMP_FORMAT              |String       |AUTO                      |AUTO            |
+STAGE_FILE_FORMAT |BINARY_FORMAT                 |String       |HEX                       |HEX             |
+STAGE_FILE_FORMAT |ESCAPE                        |String       |NONE                      |NONE            |
+STAGE_FILE_FORMAT |ESCAPE_UNENCLOSED_FIELD       |String       |\\                        |\\              |
+STAGE_FILE_FORMAT |TRIM_SPACE                    |Boolean      |false                     |false           |
+STAGE_FILE_FORMAT |FIELD_OPTIONALLY_ENCLOSED_BY  |String       |NONE                      |NONE            |
+STAGE_FILE_FORMAT |NULL_IF                       |List         |[\\N]                     |[\\N]           |
+STAGE_FILE_FORMAT |COMPRESSION                   |String       |AUTO                      |AUTO            |
+STAGE_FILE_FORMAT |ERROR_ON_COLUMN_COUNT_MISMATCH|Boolean      |true                      |true            |
+STAGE_FILE_FORMAT |VALIDATE_UTF8                 |Boolean      |true                      |true            |
+STAGE_FILE_FORMAT |SKIP_BLANK_LINES              |Boolean      |false                     |false           |
+STAGE_FILE_FORMAT |REPLACE_INVALID_CHARACTERS    |Boolean      |false                     |false           |
+STAGE_FILE_FORMAT |EMPTY_FIELD_AS_NULL           |Boolean      |true                      |true            |
+STAGE_FILE_FORMAT |SKIP_BYTE_ORDER_MARK          |Boolean      |true                      |true            |
+STAGE_FILE_FORMAT |ENCODING                      |String       |UTF8                      |UTF8            |
+STAGE_COPY_OPTIONS|ON_ERROR                      |String       |ABORT_STATEMENT           |ABORT_STATEMENT |
+STAGE_COPY_OPTIONS|SIZE_LIMIT                    |Long         |                          |                |
+STAGE_COPY_OPTIONS|PURGE                         |Boolean      |false                     |false           |
+STAGE_COPY_OPTIONS|RETURN_FAILED_ONLY            |Boolean      |false                     |false           |
+STAGE_COPY_OPTIONS|ENFORCE_LENGTH                |Boolean      |true                      |true            |
+STAGE_COPY_OPTIONS|TRUNCATECOLUMNS               |Boolean      |false                     |false           |
+STAGE_COPY_OPTIONS|FORCE                         |Boolean      |false                     |false           |
+STAGE_LOCATION    |URL                           |String       |["s3://bucketsnowflakes4"]|                |
+STAGE_CREDENTIALS |AWS_KEY_ID                    |String       |                          |                |
+DIRECTORY         |ENABLE                        |Boolean      |false                     |false           |
+DIRECTORY         |AUTO_REFRESH                  |Boolean      |false                     |false           |
+
+if we don't specify any file formats then the default file formats from the stage will be used.
