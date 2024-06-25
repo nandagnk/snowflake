@@ -303,13 +303,10 @@ email varchar,
 age int,
 city varchar);
 
-
 3. Load the data in the table
 
 The data is available under: s3://snowflake-assignments-mc/gettingstarted/customers.csv.
-
 Data type: CSV - delimited by ',' (comma)
-
 Header is in the first line.
 
 copy into customers
@@ -1204,3 +1201,365 @@ DIRECTORY         |ENABLE                        |Boolean      |false           
 DIRECTORY         |AUTO_REFRESH                  |Boolean      |false                     |false           |
 
 if we don't specify any file formats then the default file formats from the stage will be used.
+
+
+Assignment 3
+============
+If you have not created the database EXERCISE_DB then you can do so.
+The same goes for the customer table with the following columns:
+ID INT,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar
+
+
+create table if not exists customer(
+ID INT,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar)
+
+
+1. Create a database called EXERCISE_DB (if you have created that in one of the previous lectures you can skip this step)
+
+use role sysadmin;
+
+create database if not exists exercise_db;
+
+use exercise_db;
+
+create table if not exists customer(
+ID INT,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar);
+
+
+2. Create a stage object
+
+The data is available under: s3://snowflake-assignments-mc/loadingdata/
+
+Data type: CSV - delimited by ';' (semicolon)
+
+Header is in the first line.
+
+CREATE OR REPLACE STAGE exercise_db.public.aws_stage
+    url='s3://snowflake-assignments-mc/loadingdata/';
+	
+create file format if not exists exercise_db.public.my_csv_file_format_1
+type = csv  
+field_delimiter = ';'
+skip_header = 1;
+
+describe file_format exercise_db.public.my_csv_file_format_1;
+property                      |property_type|property_value|property_default|
+------------------------------+-------------+--------------+----------------+
+TYPE                          |String       |csv           |CSV             |
+RECORD_DELIMITER              |String       |\n            |\n              |
+FIELD_DELIMITER               |String       |,             |,               |
+FILE_EXTENSION                |String       |              |                |
+SKIP_HEADER                   |Integer      |1             |0               |
+PARSE_HEADER                  |Boolean      |false         |false           |
+DATE_FORMAT                   |String       |AUTO          |AUTO            |
+TIME_FORMAT                   |String       |AUTO          |AUTO            |
+TIMESTAMP_FORMAT              |String       |AUTO          |AUTO            |
+BINARY_FORMAT                 |String       |HEX           |HEX             |
+ESCAPE                        |String       |NONE          |NONE            |
+ESCAPE_UNENCLOSED_FIELD       |String       |\\            |\\              |
+TRIM_SPACE                    |Boolean      |false         |false           |
+FIELD_OPTIONALLY_ENCLOSED_BY  |String       |NONE          |NONE            |
+NULL_IF                       |List         |[\\N]         |[\\N]           |
+COMPRESSION                   |String       |AUTO          |AUTO            |
+ERROR_ON_COLUMN_COUNT_MISMATCH|Boolean      |true          |true            |
+VALIDATE_UTF8                 |Boolean      |true          |true            |
+SKIP_BLANK_LINES              |Boolean      |false         |false           |
+REPLACE_INVALID_CHARACTERS    |Boolean      |false         |false           |
+EMPTY_FIELD_AS_NULL           |Boolean      |true          |true            |
+SKIP_BYTE_ORDER_MARK          |Boolean      |true          |true            |
+ENCODING                      |String       |UTF8          |UTF8            |
+
+3. List the files in the table
+
+list @exercise_db.public.aws_stage;
+
+name                                                    |size |md5                             |last_modified               |
+--------------------------------------------------------+-----+--------------------------------+----------------------------+
+s3://snowflake-assignments-mc/loadingdata/customers2.csv|40873|c0e17482e2f37a8dc73fdc22f8b06ec0|Mon, 3 May 2021 16:03:29 GMT|
+s3://snowflake-assignments-mc/loadingdata/customers3.csv|46319|f2480711a8924658916f4668eb8a94d7|Mon, 3 May 2021 16:03:37 GMT|
+
+
+4. Load the data in the existing customers table using the COPY command
+
+select count(1) from exercise_db.PUBLIC.customer;
+COUNT(1)|
+--------+
+       0|
+
+COPY INTO exercise_db.PUBLIC.customer
+    FROM  @exercise_db.public.aws_stage
+    file_format = (FORMAT_NAME= exercise_db.public.my_csv_file_format_1);  
+
+Questions for this assignment
+How many rows have been loaded in this assignment?
+
+select count(1) from exercise_db.PUBLIC.customer;
+COUNT(1)|
+--------+
+    1600|
+	
+Quiz
+====
+Q1. We want to load data from a file on an S3 stage. In this file we encounter a few errors. We want to load all rows that can be loaded regardless. 
+What value can we set the ON_ERROR option to?
+Answer : CONTINUE
+Q2. What is a file format object created for?
+To store information about file properties like type, skip_header, field_delimiter etc.
+
+
+Assignment 4
+If you have not created the database EXERCISE_DB then you can do so. The same goes for the customer table with the following columns:
+ID INT,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar
+
+1. Create a stage & file format object
+
+The data is available under: s3://snowflake-assignments-mc/fileformat/
+
+Data type: CSV - delimited by '|' (pipe)
+
+Header is in the first line.
+
+use role sysadmin;
+use exercise_db;
+
+CREATE OR REPLACE STAGE exercise_db.public.aws_stage_1
+    url='s3://snowflake-assignments-mc/fileformat';
+	
+create file format if not exists exercise_db.public.my_csv_file_format_2
+type = csv  
+field_delimiter = '|'
+skip_header = 1;
+
+2. List the files in the table
+
+list @exercise_db.public.aws_stage_1;
+
+name                                                   |size |md5                             |last_modified               |
+-------------------------------------------------------+-----+--------------------------------+----------------------------+
+s3://snowflake-assignments-mc/fileformat/customers4.csv|13512|9de6f28c9e8428650f3972f90018a7ec|Mon, 3 May 2021 16:15:57 GMT|
+
+3. Load the data in the existing customers table using the COPY command your stage and the created file format object.
+
+COPY INTO exercise_db.PUBLIC.customer
+    FROM  @exercise_db.public.aws_stage_1
+    file_format = (FORMAT_NAME= exercise_db.public.my_csv_file_format_2); 
+	
+Updated Rows	250
+
+4. How many rows have been loaded in this assignment?
+250
+
+================================================================================================================================
+End of Topic - Loading Data
+================================================================================================================================
+
+copy options in detail
+======================
+
+VALIDATION_MODE
+===============
+
+VALIDATION_MODE = RETURN_n_ROWS | RETURN_ERRORS
+Validate the data files instead of loading them
+
+RETURN_n_ROWS(e. RETURN_10_ROWS)
+	Validates & returns the specified number of rows;
+	fails at the first error encountered	
+RETURN_ERRORS
+	Returns all errors in Copy Command
+	
+use role sysadmin;
+
+// Prepare database & table
+CREATE OR REPLACE DATABASE COPY_DB;
+
+
+CREATE OR REPLACE TABLE  COPY_DB.PUBLIC.ORDERS (
+    ORDER_ID VARCHAR(30),
+    AMOUNT VARCHAR(30),
+    PROFIT INT,
+    QUANTITY INT,
+    CATEGORY VARCHAR(30),
+    SUBCATEGORY VARCHAR(30));
+
+// Prepare stage object
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/size/';
+  
+LIST @COPY_DB.PUBLIC.aws_stage_copy;
+
+name												size	md5									last_modified
+s3://snowflakebucket-copyoption/size/Orders.csv		54600	1a1c4a47a8e8e43ecef5bf8a46ee4017	Wed, 28 Apr 2021 16:14:06 GMT
+s3://snowflakebucket-copyoption/size/Orders2.csv	54598	36bcccace29563ceb1f86a62f599dba3	Wed, 28 Apr 2021 16:29:32 GMT
+    
+ //Load data using copy command
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    VALIDATION_MODE = RETURN_ERRORS;
+	
+ERROR|FILE|LINE|CHARACTER|BYTE_OFFSET|CATEGORY|CODE|SQL_STATE|COLUMN_NAME|ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD|
+-----+----+----+---------+-----------+--------+----+---------+-----------+----------+--------------+---------------+
+
+This means there is no invalid data in the input files.
+
+select * from COPY_DB.PUBLIC.ORDERS;
+no records to display as copy into will not populate data into the table when validation_mode is set. Instead it will validate the data in the file.
+    
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+   VALIDATION_MODE = RETURN_5_ROWS;
+
+ORDER_ID|AMOUNT|PROFIT|QUANTITY|CATEGORY   |SUBCATEGORY     |
+--------+------+------+--------+-----------+----------------+
+B-25601 |12745 |    23|       7|Furniture  |Bookcases       |
+B-25601 |66    |   223|       5|Clothing   |Stole           |
+B-25601 |8     |    -2|       3|Clothing   |Hankerchief     |
+B-25601 |80    |   -56|       4|Electronics|Electronic Games|
+B-25602 |168   |  -111|       2|Electronics|Phones          |
+
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+	
+SELECT count(1) FROM COPY_DB.PUBLIC.ORDERS;
+COUNT(1)|
+--------+
+    3000|
+
+--Scenario with error records
+   
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/returnfailed/';
+
+
+LIST @COPY_DB.PUBLIC.aws_stage_copy;
+
+name                                                                       |size |md5                             |last_modified                |
+---------------------------------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error.csv        |54622|99bb5d5b87e74256ca04c91359204dba|Wed, 28 Apr 2021 16:36:24 GMT|
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error2 - Copy.csv|10514|7c9dc0c0c8e6a9b82173c3df091a746a|Thu, 29 Apr 2021 08:02:50 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders.csv                    |54597|cf56c5cfede468cdcacac48d7ab67e75|Wed, 28 Apr 2021 16:36:06 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders2.csv                   |54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:36:07 GMT|
+
+truncate table COPY_DB.PUBLIC.ORDERS;
+  
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    VALIDATION_MODE = RETURN_ERRORS;
+	
+ERROR                                               |FILE                                       |LINE|CHARACTER|BYTE_OFFSET|CATEGORY  |CODE  |SQL_STATE|COLUMN_NAME           |ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD                                 |
+----------------------------------------------------+-------------------------------------------+----+---------+-----------+----------+------+---------+----------------------+----------+--------------+------------------------------------------------+
+Numeric value '7-' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   2|       17|         71|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         1|             2|B-30601,1275,10,7-,Furniture,Bookcases¶         |
+Numeric value '3a' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   4|       16|        143|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         3|             4|B-30601,8,-244,3a,Clothing,Hankerchief¶         |
+Numeric value 'one thousand' is not recognized      |returnfailed/OrderDetails_error.csv        |   2|       14|         68|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         1|             2|B-25601,1275,one thousand,7,Furniture,Bookcases¶|
+Numeric value 'two hundred twenty' is not recognized|returnfailed/OrderDetails_error.csv        |   3|       12|        115|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         2|             3|B-25601,66,two hundred twenty,5,Clothing,Stole¶ |
+
+select * from COPY_DB.PUBLIC.ORDERS;
+no data to display
+    
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+   VALIDATION_MODE = RETURN_5_ROWS;
+   
+this will return a error.
+SQL Error [100038] [22018]: Numeric value '7-' is not recognized
+  File 'returnfailed/OrderDetails_error2 - Copy.csv', line 2, character 17
+  Row 1, column "ORDERS"["QUANTITY":4]
+
+========Assignment done by me
+1. Create employees table in the copy_db if not exists with the following columns
+customer_id int,
+first_name varchar(50),
+last_name varchar(50),
+email varchar(50),
+age int,
+department varchar(50)
+  
+create table COPY_DB.PUBLIC.employees(
+ customer_id int,
+  first_name varchar(50),
+  last_name varchar(50),
+  email varchar(50),
+  age int,
+  department varchar(50)
+);
+
+2. create a stage object for the given URL s3://snowflake-assignments-mc/copyoptions/example1
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+url='s3://snowflake-assignments-mc/copyoptions/example1';
+
+3. list the files in the stage object created in the previous step
+list @COPY_DB.PUBLIC.aws_stage_copy
+
+name                                                            |size|md5                             |last_modified               |
+----------------------------------------------------------------+----+--------------------------------+----------------------------+
+s3://snowflake-assignments-mc/copyoptions/example1/employees.csv|6965|9f89433257464990e7cd95f515555808|Mon, 3 May 2021 17:09:22 GMT|
+
+4. validate the data in the input files and return the errored records in the input files if any.
+
+truncate table MANAGE_DB.PUBLIC.CUSTOMERS;
+
+COPY INTO copy_DB.PUBLIC.employees
+    FROM @COPY_DB.PUBLIC.aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*emp.*'
+    VALIDATION_MODE = RETURN_ERRORS;
+	
+ERROR                              |FILE                              |LINE|CHARACTER|BYTE_OFFSET|CATEGORY  |CODE  |SQL_STATE|COLUMN_NAME                 |ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD                                            |
+-----------------------------------+----------------------------------+----+---------+-----------+----------+------+---------+----------------------------+----------+--------------+-----------------------------------------------------------+
+Numeric value '-' is not recognized|copyoptions/example1/employees.csv|  10|        1|        463|conversion|100038|22018    |"EMPLOYEES"["CUSTOMER_ID":1]|         9|            10|-,Sutherland,Deinhard,sdeinhard8@wunderground.com,81,Legal¶|
+
+ignore upto 2 errored records in each file and load the data from each file. if more than 2 errors exists skip the file.
+
+COPY INTO copy_DB.PUBLIC.employees
+    FROM @COPY_DB.PUBLIC.aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*emp.*'
+    ON_ERROR = 'SKIP_FILE_3';
+	
+or	
+
+COPY INTO copy_DB.PUBLIC.employees
+    FROM @COPY_DB.PUBLIC.aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*emp.*'
+    ON_ERROR = 'CONTINUE';   ---As there is only one error in the input file this should be more than enough in this scenario.
+	
+5. find the number of records populated into the table.
+select count(1) from copy_DB.PUBLIC.employees;
+COUNT(1)|
+--------+
+     121|
+	 
+================================================================================================================================
+End of Topic - copy options in detail
+================================================================================================================================
