@@ -1560,6 +1560,308 @@ COUNT(1)|
 --------+
      121|
 	 
+Working with error records
+==========================
+
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/returnfailed/';
+
+LIST @COPY_DB.PUBLIC.aws_stage_copy;    
+name                                                                       |size |md5                             |last_modified                |
+---------------------------------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error.csv        |54622|99bb5d5b87e74256ca04c91359204dba|Wed, 28 Apr 2021 16:36:24 GMT|
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error2 - Copy.csv|10514|7c9dc0c0c8e6a9b82173c3df091a746a|Thu, 29 Apr 2021 08:02:50 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders.csv                    |54597|cf56c5cfede468cdcacac48d7ab67e75|Wed, 28 Apr 2021 16:36:06 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders2.csv                   |54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:36:07 GMT|
+
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    VALIDATION_MODE = RETURN_ERRORS;
+
+ERROR                                               |FILE                                       |LINE|CHARACTER|BYTE_OFFSET|CATEGORY  |CODE  |SQL_STATE|COLUMN_NAME           |ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD                                 |
+----------------------------------------------------+-------------------------------------------+----+---------+-----------+----------+------+---------+----------------------+----------+--------------+------------------------------------------------+
+Numeric value '7-' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   2|       17|         71|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         1|             2|B-30601,1275,10,7-,Furniture,Bookcases¶         |
+Numeric value '3a' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   4|       16|        143|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         3|             4|B-30601,8,-244,3a,Clothing,Hankerchief¶         |
+Numeric value 'one thousand' is not recognized      |returnfailed/OrderDetails_error.csv        |   2|       14|         68|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         1|             2|B-25601,1275,one thousand,7,Furniture,Bookcases¶|
+Numeric value 'two hundred twenty' is not recognized|returnfailed/OrderDetails_error.csv        |   3|       12|        115|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         2|             3|B-25601,66,two hundred twenty,5,Clothing,Stole¶ |
+
+create table rejected_order_records as
+select current_date() as run_date, current_timestamp() as run_ts, t.* from table(result_scan(last_query_id())) as t;
+
+select *
+from rejected_order_records;
+
+RUN_DATE  |RUN_TS                 |ERROR                                               |FILE                                       |LINE|CHARACTER|BYTE_OFFSET|CATEGORY  |CODE  |SQL_STATE|COLUMN_NAME           |ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD                                 |
+----------+-----------------------+----------------------------------------------------+-------------------------------------------+----+---------+-----------+----------+------+---------+----------------------+----------+--------------+------------------------------------------------+
+2024-06-25|2024-06-26 01:16:53.204|Numeric value 'one thousand' is not recognized      |returnfailed/OrderDetails_error.csv        |   2|       14|         68|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         1|             2|B-25601,1275,one thousand,7,Furniture,Bookcases¶|
+2024-06-25|2024-06-26 01:16:53.204|Numeric value 'two hundred twenty' is not recognized|returnfailed/OrderDetails_error.csv        |   3|       12|        115|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         2|             3|B-25601,66,two hundred twenty,5,Clothing,Stole¶ |
+2024-06-25|2024-06-26 01:16:53.204|Numeric value '7-' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   2|       17|         71|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         1|             2|B-30601,1275,10,7-,Furniture,Bookcases¶         |
+2024-06-25|2024-06-26 01:16:53.204|Numeric value '3a' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   4|       16|        143|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         3|             4|B-30601,8,-244,3a,Clothing,Hankerchief¶         |
+
+
+SELECT 
+SPLIT_PART(rejected_record,',',1) as ORDER_ID, 
+SPLIT_PART(rejected_record,',',2) as AMOUNT, 
+SPLIT_PART(rejected_record,',',3) as PROFIT, 
+SPLIT_PART(rejected_record,',',4) as QUATNTITY, 
+SPLIT_PART(rejected_record,',',5) as CATEGORY, 
+SPLIT_PART(rejected_record,',',6) as SUBCATEGORY
+FROM rejected_order_records;
+
+ORDER_ID|AMOUNT|PROFIT            |QUATNTITY|CATEGORY |SUBCATEGORY |
+--------+------+------------------+---------+---------+------------+
+B-25601 |1275  |one thousand      |7        |Furniture|Bookcases¶  |
+B-25601 |66    |two hundred twenty|5        |Clothing |Stole¶      |
+B-30601 |1275  |10                |7-       |Furniture|Bookcases¶  |
+B-30601 |8     |-244              |3a       |Clothing |Hankerchief¶|
+
+another approach to handle error records without using validation_mode
+
+truncate table COPY_DB.PUBLIC.ORDERS;
+truncate table COPY_DB.PUBLIC.rejected_order_records;
+
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    ON_ERROR=CONTINUE;
+
+file																		status				rows_parsed		rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error2 - Copy.csv	PARTIALLY_LOADED	285				283			285			2			Numeric value '7-' is not recognized	2	17	"ORDERS"["QUANTITY":4]
+s3://snowflakebucket-copyoption/returnfailed/Orders2.csv					LOADED				1500			1500		1500		0				
+s3://snowflakebucket-copyoption/returnfailed/Orders.csv						LOADED				1500			1500		1500		0				
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error.csv			PARTIALLY_LOADED	1500			1498		1500		2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS"["PROFIT":3]  
+  
+insert into rejected_order_records  
+select current_date() as run_date, current_timestamp() as run_ts, t.* from table(validate(orders, job_id => '_last')) as t;
+
+select * from copy_db.public.rejected_order_records;
+RUN_DATE  |RUN_TS                 |ERROR                                               |FILE                                       |LINE|CHARACTER|BYTE_OFFSET|CATEGORY  |CODE  |SQL_STATE|COLUMN_NAME           |ROW_NUMBER|ROW_START_LINE|REJECTED_RECORD                                 |
+----------+-----------------------+----------------------------------------------------+-------------------------------------------+----+---------+-----------+----------+------+---------+----------------------+----------+--------------+------------------------------------------------+
+2024-06-25|2024-06-26 01:27:55.743|Numeric value '7-' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   2|       17|         71|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         1|             2|B-30601,1275,10,7-,Furniture,Bookcases¶         |
+2024-06-25|2024-06-26 01:27:55.743|Numeric value '3a' is not recognized                |returnfailed/OrderDetails_error2 - Copy.csv|   4|       16|        143|conversion|100038|22018    |"ORDERS"["QUANTITY":4]|         3|             4|B-30601,8,-244,3a,Clothing,Hankerchief¶         |
+2024-06-25|2024-06-26 01:27:55.743|Numeric value 'one thousand' is not recognized      |returnfailed/OrderDetails_error.csv        |   2|       14|         68|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         1|             2|B-25601,1275,one thousand,7,Furniture,Bookcases¶|
+2024-06-25|2024-06-26 01:27:55.743|Numeric value 'two hundred twenty' is not recognized|returnfailed/OrderDetails_error.csv        |   3|       12|        115|conversion|100038|22018    |"ORDERS"["PROFIT":3]  |         2|             3|B-25601,66,two hundred twenty,5,Clothing,Stole¶ |
+
+==========
+SIZE_LIMIT
+==========
+Example for size_limit option
+
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/size/';
+	
+name                                            |size |md5                             |last_modified                |
+------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/size/Orders.csv |54600|1a1c4a47a8e8e43ecef5bf8a46ee4017|Wed, 28 Apr 2021 16:14:06 GMT|
+s3://snowflakebucket-copyoption/size/Orders2.csv|54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:29:32 GMT|
+
+here both the file having size more than 50k bytes, the below example allow to load upto 20k bytes. Lets see what happens
+
+truncate table COPY_DB.PUBLIC.ORDERS;
+
+//Load data using copy command
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    SIZE_LIMIT=20000;
+
+file											status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflakebucket-copyoption/size/Orders.csv	LOADED	1500		1500		1			0				
+
+Though the contains morethan 50k bytes, snowflake process the current file and load the file fully and reject the remaining files once the maximum size threshold is reached. This is to avoid 
+partial loading of a file.
+
+even if the size_limit is 10 bytes, it will load the file as it picked it for processing. Assume if the size_limit is 60k then it loads both the files. Since, the
+first file has 54600 bytes which is less than the size_limit so it will pick the next availale file and start processing it and fully load the data even the cumulative
+file size reaches the size_limit threshold.
+
+==================
+RETURN_FAILED_ONLY
+==================
+
+RETURN_FAILED_ONLY = True / False
+If we set the value as 'True' in the copy into command, this option loads the data if there is no error, incase of errors will return the information about the 
+errored files only. 
+Default value is false. 
+
+If we set this flag = 'True' along with ON_ERROR = 'CONTINUE' then the copy into command will load the valid records into the table and return the failed records in the display 
+console.
+
+
+// Prepare stage object
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/returnfailed/';
+  
+LIST @COPY_DB.PUBLIC.aws_stage_copy
+name                                                                       |size |md5                             |last_modified                |
+---------------------------------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error.csv        |54622|99bb5d5b87e74256ca04c91359204dba|Wed, 28 Apr 2021 16:36:24 GMT|
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error2 - Copy.csv|10514|7c9dc0c0c8e6a9b82173c3df091a746a|Thu, 29 Apr 2021 08:02:50 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders.csv                    |54597|cf56c5cfede468cdcacac48d7ab67e75|Wed, 28 Apr 2021 16:36:06 GMT|
+s3://snowflakebucket-copyoption/returnfailed/Orders2.csv                   |54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:36:07 GMT|
+
+truncate table COPY_DB.PUBLIC.ORDERS;
+    
+ //Load data using copy command
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    RETURN_FAILED_ONLY = TRUE ;
+
+File 'returnfailed/OrderDetails_error2 - Copy.csv', line 2, character 17
+Row 1, column "ORDERS"["QUANTITY":4]
+If you would like to continue loading when an error is encountered, use other values such as 'SKIP_FILE' or 'CONTINUE' for the ON_ERROR option. 
+For more information on loading options, please run 'info loading_data' in a SQL client.  
+  
+//Load data using copy command
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+	on_error = 'continue'
+    RETURN_FAILED_ONLY = TRUE ;
+
+file																		file_count	status				rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+-																			2			LOADED				3000		3000		0				
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error2 - Copy.csv	1			PARTIALLY_LOADED	285			283			285			2			Numeric value '7-' is not recognized	2	17	"ORDERS"["QUANTITY":4]
+s3://snowflakebucket-copyoption/returnfailed/OrderDetails_error.csv			1			PARTIALLY_LOADED	1500		1498		1500		2			Numeric value 'one thousand' is not recognized	2	14	"ORDERS"["PROFIT":3]
+
+in this example two files were loaded successfully but file informations are not shown.
+
+===============
+TRUNCATECOLUMNS
+===============
+
+TRUNCATECOLUMNS = True/False
+
+if this parameter is set to true, in case if the value given in the input file is more than the field length of the CHAR/VARCHAR/STRING data type fields then 
+it will autometically truncate the excess characters and load the data into the tables. Default value is False.
+
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/size/';
+  
+LIST @COPY_DB.PUBLIC.aws_stage_copy
+ 
+name                                            |size |md5                             |last_modified                |
+------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/size/Orders.csv |54600|1a1c4a47a8e8e43ecef5bf8a46ee4017|Wed, 28 Apr 2021 16:14:06 GMT|
+s3://snowflakebucket-copyoption/size/Orders2.csv|54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:29:32 GMT|
+
+truncate table copy_db.public.orders;
+
+recreate the table copy_db.public.orders and reduce the field length for the column category from 30 to 10.
+
+CREATE OR REPLACE TABLE  COPY_DB.PUBLIC.ORDERS (
+    ORDER_ID VARCHAR(30),
+    AMOUNT VARCHAR(30),
+    PROFIT INT,
+    QUANTITY INT,
+    CATEGORY VARCHAR(10),
+    SUBCATEGORY VARCHAR(30));
+
+
+// this will fail due to the excess field length
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+	
+SQL Error [100074] [54000]: User character length limit (10) exceeded by string 'Electronics'
+  File 'size/Orders2.csv', line 5, character 18
+  Row 4, column "ORDERS"["CATEGORY":5]
+  If you would like to continue loading when an error is encountered, use other values such as 'SKIP_FILE' or 'CONTINUE' for the ON_ERROR option. 
+  For more information on loading options, please run 'info loading_data' in a SQL client.
+
+// this will fail due to the excess field length
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+	truncatecolumns = true
+    pattern='.*Order.*';
+	
+file												status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflakebucket-copyoption/size/Orders.csv		LOADED	1500		1500		1			0				
+s3://snowflakebucket-copyoption/size/Orders2.csv	LOADED	1500		1500		1			0				
+
+=====
+FORCE
+=====
+
+Force = True / False
+
+Generally once the file is loaded, if we execute the copy command again the same file will not get loaded. Snowflake maintains the metadata about the file
+load_history and the file loaded successfully and will not allow to populate the file again to avoid the duplicate data. If there is a scenario to reload the 
+file again then set the flag force = True, which will reload the file again and there will be duplicate data in the table.
+
+CREATE OR REPLACE TABLE  COPY_DB.PUBLIC.ORDERS (
+    ORDER_ID VARCHAR(30),
+    AMOUNT VARCHAR(30),
+    PROFIT INT,
+    QUANTITY INT,
+    CATEGORY VARCHAR(30),
+    SUBCATEGORY VARCHAR(30));
+
+// Prepare stage object
+CREATE OR REPLACE STAGE COPY_DB.PUBLIC.aws_stage_copy
+    url='s3://snowflakebucket-copyoption/size/';
+  
+LIST @COPY_DB.PUBLIC.aws_stage_copy;
+name                                            |size |md5                             |last_modified                |
+------------------------------------------------+-----+--------------------------------+-----------------------------+
+s3://snowflakebucket-copyoption/size/Orders.csv |54600|1a1c4a47a8e8e43ecef5bf8a46ee4017|Wed, 28 Apr 2021 16:14:06 GMT|
+s3://snowflakebucket-copyoption/size/Orders2.csv|54598|36bcccace29563ceb1f86a62f599dba3|Wed, 28 Apr 2021 16:29:32 GMT|
+    
+//Load data using copy command
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+	
+file													status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflakebucket-copyoption/size/Orders.csv			LOADED	1500	1	500			1			0				
+s3://snowflakebucket-copyoption/size/Orders2.csv		LOADED	1500		1500		1			0				
+	
+select count(1) from COPY_DB.PUBLIC.ORDERS;
+COUNT(1)|
+--------+
+    3000|
+
+// Not possible to load file that have been loaded and data has not been modified
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+	
+status
+Copy executed with 0 files processed.
+
+select count(1) from COPY_DB.PUBLIC.ORDERS;
+COUNT(1)|
+--------+
+    3000|
+
+// Now load the data using the FORCE option
+
+COPY INTO COPY_DB.PUBLIC.ORDERS
+    FROM @aws_stage_copy
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*'
+    FORCE = TRUE;
+	
+file													status	rows_parsed	rows_loaded	error_limit	errors_seen	first_error	first_error_line	first_error_character	first_error_column_name
+s3://snowflakebucket-copyoption/size/Orders.csv			LOADED	1500	1	500			1			0				
+s3://snowflakebucket-copyoption/size/Orders2.csv		LOADED	1500		1500		1			0		
+
+select count(1) from COPY_DB.PUBLIC.ORDERS;
+COUNT(1)|
+--------+
+    6000|
+
 ================================================================================================================================
 End of Topic - copy options in detail
 ================================================================================================================================
